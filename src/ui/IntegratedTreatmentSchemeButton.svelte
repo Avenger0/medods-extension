@@ -3,6 +3,7 @@
     // Импортируем все созданные компоненты
     import ExistingSchemes from './ExistingSchemes.svelte';
     import SchemeItem from './SchemeItem.svelte';
+    import MedicationFormModal from './MedicationFormModal.svelte';
     import CreateSchemeButton from './CreateSchemeButton.svelte';
     import TreatmentModal from './TreatmentModal.svelte';
     
@@ -69,6 +70,15 @@
 
     let selectedMedications = [];
     let selectedDays = {};
+
+    let isMedicationFormOpen = false;
+    let currentMedicationForm = {
+        medication: medications[0],
+        administrationType: 'в/м',
+        dosage: '',
+        hasDiluent: 'нет',
+        diluents: []
+    };
 
     let existingSchemes = [
         { 
@@ -211,17 +221,53 @@
     }
 
     function editMedication(medication) {
-        // Заполняем форму данными выбранного препарата
-        medicationForm = {
+        currentMedicationForm = {
             medication: medications.find(m => m.name === medication.medication.name) || medications[0],
             administrationType: medication.administrationType,
             dosage: medication.dosage,
-            hasDiluent: medication.hasDiluent,
-            diluents: [...medication.diluents]
+            // Проверяем, есть ли растворители
+            hasDiluent: medication.diluents && medication.diluents.length > 0 ? 'да' : 'нет',
+            // Делаем глубокую копию массива растворителей
+            diluents: medication.diluents ? [...medication.diluents] : []
         };
         
-        // Запоминаем ID редактируемого препарата
         editingMedicationId = medication.id;
+        isMedicationFormOpen = true;
+    }
+
+    // Добавьте функцию handleSaveMedication
+    // В IntegratedTreatmentSchemeButton.svelte
+    function handleSaveMedication(formData) {
+        if (editingMedicationId) {
+            // Обновление существующего препарата
+            selectedMedications = selectedMedications.map(med => {
+                if (med.id === editingMedicationId) {
+                    return {
+                        ...formData,
+                        id: med.id,
+                        // Убедимся, что diluents копируется правильно
+                        diluents: [...formData.diluents]
+                    };
+                }
+                return med;
+            });
+            
+            // Сбрасываем режим редактирования
+            editingMedicationId = null;
+        } else {
+            // Добавление нового препарата
+            const newMedication = { 
+                ...formData,
+                id: Date.now(), // уникальный идентификатор
+                // Убедимся, что diluents копируется правильно
+                diluents: [...formData.diluents]
+            };
+            
+            selectedMedications = [...selectedMedications, newMedication];
+        }
+        
+        // Закрываем форму
+        isMedicationFormOpen = false;
     }
 
     function deleteMedication(medicationId) {
@@ -523,125 +569,13 @@
                         buttonHoverColor={createButtonHoverColor}
                         buttonBorderRadius={createButtonBorderRadius}
                     />
-                {:else}
-                    <h2>
-                        {#if currentEditingScheme}
-                        Редактирование схемы: {currentEditingScheme.name}
-                        {:else}
-                        Добавление препарата
-                        {/if}
-                    </h2>
-                    
-                    <!-- Форма добавления медикамента -->
-                    <select 
-                        bind:value={medicationForm.medication}
-                        class="form-control"
-                    >
-                        {#each medications as med}
-                            <option value={med}>{med.name}</option>
-                        {/each}
-                    </select>
-
-                    <div class="administration-type">
-                        <label>
-                            <input 
-                                type="radio" 
-                                value="в/м"
-                                bind:group={medicationForm.administrationType}
-                            > 
-                            Внутримышечно
-                        </label>
-                        <label>
-                            <input 
-                                type="radio" 
-                                value="в/в"
-                                bind:group={medicationForm.administrationType}
-                            > 
-                            Внутривенно
-                        </label>
-                    </div>
-
-                    <input 
-                        type="text" 
-                        placeholder="Дозировка препарата"
-                        bind:value={medicationForm.dosage}
-                        class="form-control"
-                    />
-                    
-                    <div class="diluent-choice">
-                        <label>Использовать растворитель:</label>
-                        <label>
-                            <input 
-                                type="radio" 
-                                value="нет"
-                                bind:group={medicationForm.hasDiluent}
-                            > 
-                            Нет
-                        </label>
-                        <label>
-                            <input 
-                                type="radio" 
-                                value="да"
-                                bind:group={medicationForm.hasDiluent}
-                            > 
-                            Да
-                        </label>
-                    </div>
-                    
-                    <!-- Блок растворителей -->
-                    {#if medicationForm.hasDiluent === 'да'}
-                        <div class="diluents-container">
-                            {#each medicationForm.diluents as diluent (diluent.id)}
-                                <div class="diluent-row">
-                                    <select 
-                                        bind:value={diluent.type}
-                                        class="form-control diluent-select"
-                                    >
-                                        <option value="">Выберите растворитель</option>
-                                        <option value="глюкоза">Глюкоза</option>
-                                        <option value="физраствор">Физраствор</option>
-                                    </select>
-                    
-                                    <input 
-                                        type="text" 
-                                        placeholder="Дозировка"
-                                        bind:value={diluent.dosage}
-                                        class="form-control diluent-dosage"
-                                    />
-                                    
-                                    <button 
-                                        class="btn-remove-diluent"
-                                        on:click={() => removeDiluent(diluent.id)}
-                                    >
-                                        ✖
-                                    </button>
-                                </div>
-                            {/each}
-                            
-                            <button 
-                                class="btn-add-diluent" 
-                                on:click={addDiluent}
-                            >
-                                + Добавить растворитель
-                            </button>
-                        </div>
-                    {/if}
-
-                    <button 
-                        class="btn-add" 
-                        disabled={!isFormValid}
-                        on:click={addMedication}
-                    >
-                        {editingMedicationId ? 'Сохранить изменения' : 'Добавить препарат'}
-                    </button>
                 {/if}
             </div>
 
             <!-- График приема препаратов -->
-            {#if isCreatingNewScheme && selectedMedications.length > 0}
+            {#if isCreatingNewScheme}
                 <div class="schedule-column">
                     <h2>График приема препаратов</h2>
-                    
                     <div class="schedule-table">
                         <div class="schedule-header">
                             <div class="medication-column">Препарат</div>
@@ -654,7 +588,7 @@
                                 <div class="medication-cell">
                                     <div class="medication-title">
                                         <strong>{medication.medication.name}</strong> {medication.administrationType}, {medication.dosage}
-                                        {#if medication.hasDiluent === 'да' && medication.diluents.length > 0}
+                                        {#if medication.hasDiluent === 'да' && medication.diluents && medication.diluents.length > 0}
                                             {#each medication.diluents as diluent}
                                                 + {diluent.type} ({diluent.dosage}) 
                                             {/each}
@@ -693,6 +627,21 @@
                       Опубликовать схему
                     {/if}
                   </button>
+                  <button 
+                    class="btn-add-medication" 
+                    on:click={() => {
+                        currentMedicationForm = {
+                            medication: medications[0],
+                            administrationType: 'в/м',
+                            dosage: '',
+                            hasDiluent: 'нет',
+                            diluents: []
+                        };
+                        isMedicationFormOpen = true;
+                    }}
+                >
+                    + Добавить препарат
+                </button>
                 </div>
             {/if}
         </div>
@@ -705,6 +654,18 @@
         {/if}
     </TreatmentModal>
 </div>
+
+<MedicationFormModal
+    isOpen={isMedicationFormOpen}
+    onClose={() => {
+        isMedicationFormOpen = false;
+        editingMedicationId = null;
+    }}
+    medications={medications}
+    medicationForm={currentMedicationForm}
+    isEditing={!!editingMedicationId}
+    onSave={handleSaveMedication}
+/>
 
 <style>
     .treatment-scheme-button {
@@ -723,7 +684,6 @@
 
     .modal-grid {
         display: grid;
-        grid-template-columns: 1fr 1fr;
         gap: 20px;
     }
 
@@ -731,7 +691,6 @@
         display: flex;
         flex-direction: column;
         gap: 10px;
-        max-width: 350px;
     }
 
     .schedule-column {
@@ -914,6 +873,23 @@
         border-top-color: white;
         animation: spin 1s ease-in-out infinite;
         margin-right: 8px;
+    }
+
+    .schedule-header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    
+    .btn-add-medication {
+        background-color: #2196F3;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
     }
 
     @keyframes spin {

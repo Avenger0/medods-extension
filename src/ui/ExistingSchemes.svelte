@@ -17,15 +17,15 @@
     <h2>Существующие схемы лечения</h2>
     
     {#if schemes.length}
-      <div class="schemes-list">
-        {#each schemes as scheme (scheme.id)}
-          <SchemeItem 
-            {scheme} 
-            onSelect={() => onSelect(scheme)}
-            onEdit={() => onEdit(scheme)}
-          />
-        {/each}
-      </div>
+        <div class="schemes-list">
+            {#each schemes as scheme (scheme.id)}
+            <SchemeItem 
+                {scheme} 
+                onSelect={() => onSelect(scheme)}
+                onEdit={() => onEdit(scheme)}
+            />
+            {/each}
+        </div>
     {:else}
       <p class="no-schemes">Нет существующих схем</p>
     {/if}
@@ -33,13 +33,13 @@
   
   <style>
     .existing-schemes {
-      margin-top: 20px;
-      background-color: var(--bg-color, #f8f9fa);
-      border-radius: 6px;
-      padding: 15px;
-      border: 1px solid var(--border-color, #e9ecef);
+        margin-top: 20px;
+        background-color: var(--bg-color, #f8f9fa);
+        border-radius: 6px;
+        padding: 15px;
+        border: 1px solid var(--border-color, #e9ecef);
     }
-    
+
     h2 {
       margin-top: 0;
       color: var(--title-color, #333);
@@ -50,11 +50,13 @@
     }
     
     .schemes-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        max-height: 500px;
+        overflow-y: auto;
+        padding-right: 5px;
     }
-    
     .no-schemes {
       font-style: italic;
       color: #6c757d;
