@@ -23,7 +23,7 @@ const state = {
       schemesTitleColor: '#2c3e50',
       useButtonBgColor: '#3498db', // Синий
       editButtonBgColor: '#9b59b6', // Фиолетовый
-      createButtonBgColor: '#e74c3c', // Красный
+      createButtonBgColor: '#4CAF50', // Красный
     }
   },
   

@@ -30,9 +30,12 @@
       margin-top: 15px;
       cursor: pointer;
       width: 100%;
+      max-width: 300px;
       font-weight: 500;
       transition: background-color 0.2s ease, transform 0.1s ease;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin: auto;
+      font-size: 18px;
     }
   
     .btn-add-new-scheme:hover {

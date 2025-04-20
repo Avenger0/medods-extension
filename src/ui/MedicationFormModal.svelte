@@ -23,7 +23,7 @@
     function addDiluent() {
         medicationForm.diluents = [
             ...medicationForm.diluents,
-            { id: Date.now(), type: '', dosage: '' }
+            { id: Date.now(), type: 'глюкоза', dosage: '' }
         ];
     }
     
@@ -117,7 +117,6 @@
                         bind:value={diluent.type}
                         class="form-control diluent-select"
                     >
-                        <option value="">Выберите растворитель</option>
                         <option value="глюкоза">Глюкоза</option>
                         <option value="физраствор">Физраствор</option>
                     </select>
@@ -167,11 +166,9 @@
 <style>
     .form-control {
         width: 100%;
-        margin-bottom: 10px;
         border: 1px solid #ccc;
         border-radius: 4px;
         font-size: 14px;
-        padding: 8px;
     }
 
     .administration-type, .diluent-choice {
@@ -198,6 +195,7 @@
         display: flex;
         gap: 8px;
         align-items: center;
+        margin-bottom: 10px;
     }
 
     .diluent-select {

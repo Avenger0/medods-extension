@@ -1,77 +1,65 @@
 <!-- src/ui/IntegratedTreatmentSchemeButton.svelte -->
 <script>
-    // Импортируем все созданные компоненты
+    // Импортируем компоненты
     import ExistingSchemes from './ExistingSchemes.svelte';
-    import SchemeItem from './SchemeItem.svelte';
     import MedicationFormModal from './MedicationFormModal.svelte';
     import CreateSchemeButton from './CreateSchemeButton.svelte';
     import TreatmentModal from './TreatmentModal.svelte';
     
+    // Пропсы для интеграции
     export let serviceId = null;
     export let medicalCardId = null;
     
-    // Стилевые настройки для кастомизации
-    // Основная модалка
+    // Стилевые пропсы - модальное окно
     export let modalMaxWidth = '1100px';
     export let modalBgColor = 'white';
     export let modalBorderRadius = '8px';
     export let modalOverlayColor = 'rgba(0,0,0,0.5)';
     
-    // Список схем
+    // Стилевые пропсы - список схем
     export let schemesBgColor = '#f8f9fa';
     export let schemesTitleColor = '#333';
     export let schemesBorderColor = '#e9ecef';
     
-    // Элементы схем
+    // Стилевые пропсы - элементы схем
     export let schemeItemBgColor = '#f8f9fa';
     export let schemeItemHoverColor = '#e9ecef';
     export let schemeItemBorderColor = '#e9ecef';
     export let schemeTitleColor = '#333';
     export let schemeDetailsColor = '#6c757d';
     
-    // Кнопки действий со схемами
+    // Стилевые пропсы - кнопки действий со схемами
     export let useButtonBgColor = '#007bff';
     export let useButtonTextColor = '#fff';
     export let editButtonBgColor = '#6c757d';
     export let editButtonTextColor = '#fff';
     
-    // Кнопка создания новой схемы
+    // Стилевые пропсы - кнопки создания новой схемы
     export let createButtonBgColor = '#28a745';
     export let createButtonTextColor = '#fff';
     export let createButtonHoverColor = '#218838';
     export let createButtonBorderRadius = '4px';
     
-    // Кнопка основная
+    // Стилевые пропсы - главная кнопка
     export let mainButtonBgColor = '#007bff';
     export let mainButtonTextColor = 'white';
     export let mainButtonBorderRadius = '4px';
     
+    // Состояние интерфейса
     let isModalOpen = false;
     let isCreatingNewScheme = false;
+    let isMedicationFormOpen = false;
+    let isLoading = false;
+    let validationError = '';
+    
+    // Данные препаратов и форм
     let medications = [
         { id: 1, name: 'Цефтриаксон', type: 'в/м' },
         { id: 2, name: 'Метронидазол', type: 'в/в' },
         { id: 3, name: 'Ибупрофен', type: 'в/м' }
     ];
-
-    let validationError = '';
-    let isLoading = false;
-
-    let medicationForm = {
-        medication: medications[0],
-        administrationType: 'в/м',
-        dosage: '',
-        hasDiluent: 'нет',
-        diluents: [] // Массив растворителей вместо единичных полей
-    };
     
-    let editingMedicationId = null;
-    let currentEditingScheme = null;
-
-    let selectedMedications = [];
-    let selectedDays = {};
-
-    let isMedicationFormOpen = false;
+    // Текущая форма препарата
     let currentMedicationForm = {
         medication: medications[0],
         administrationType: 'в/м',
@@ -79,164 +67,91 @@
         hasDiluent: 'нет',
         diluents: []
     };
-
+    
+    // ID редактируемого препарата
+    let editingMedicationId = null;
+    let currentEditingScheme = null;
+    
+    // Выбранные препараты и расписание
+    let selectedMedications = [];
+    let selectedDays = {};
+    
+    // Примеры существующих схем
     let existingSchemes = [
-        { 
-            id: 1, 
-            name: 'Схема лечения №1', 
-            medications: [
-                { 
-                    id: 101, 
-                    name: 'Цефтриаксон', 
-                    dosage: '1г', 
-                    администрationType: 'в/м',
-                    diluents: [
-                        { id: 1001, type: 'физраствор', dosage: '2мл' }
-                    ]
-                }
-            ],
-            schedule: {
-                101: { 1: [1, 3, 5, 7, 9] }
-            }
-        },
-        { 
-            id: 2, 
-            name: 'Схема лечения №2', 
-            medications: [
-                { 
-                    id: 201, 
-                    name: 'Метронидазол', 
-                    dosage: '500мг', 
-                    администрationType: 'в/в',
-                    diluents: [
-                        { id: 2001, type: 'глюкоза', dosage: '100мл' },
-                        { id: 2002, type: 'физраствор', dosage: '50мл' }
-                    ]
-                }
-            ],
-            schedule: {
-                201: { 1: [1, 2, 3, 4, 5] }
-            }
-        },
-        { 
-            id: 3, 
-            name: 'Схема лечения №2', 
-            medications: [
-                { 
-                    id: 201, 
-                    name: 'Метронидазол', 
-                    dosage: '500мг', 
-                    администрationType: 'в/в',
-                    diluents: [
-                        { id: 2001, type: 'глюкоза', dosage: '100мл' },
-                        { id: 2002, type: 'физраствор', dosage: '50мл' }
-                    ]
-                }
-            ],
-            schedule: {
-                201: { 1: [1, 2, 3, 4, 5] }
-            }
-        },
-        { 
-            id: 4, 
-            name: 'Схема лечения №2', 
-            medications: [
-                { 
-                    id: 201, 
-                    name: 'Метронидазол', 
-                    dosage: '500мг', 
-                    администрationType: 'в/в',
-                    diluents: [
-                        { id: 2001, type: 'глюкоза', dosage: '100мл' },
-                        { id: 2002, type: 'физраствор', dosage: '50мл' }
-                    ]
-                }
-            ],
-            schedule: {
-                201: { 1: [1, 2, 3, 4, 5] }
-            }
-        },
-        { 
-            id: 5, 
-            name: 'Схема лечения №2', 
-            medications: [
-                { 
-                    id: 201, 
-                    name: 'Метронидазол', 
-                    dosage: '500мг', 
-                    администрationType: 'в/в',
-                    diluents: [
-                        { id: 2001, type: 'глюкоза', dosage: '100мл' },
-                        { id: 2002, type: 'физраствор', dosage: '50мл' }
-                    ]
-                }
-            ],
-            schedule: {
-                201: { 1: [1, 2, 3, 4, 5] }
-            }
-        },
-        { 
-            id: 6, 
-            name: 'Схема лечения №2', 
-            medications: [
-                { 
-                    id: 201, 
-                    name: 'Метронидазол', 
-                    dosage: '500мг', 
-                    администрationType: 'в/в',
-                    diluents: [
-                        { id: 2001, type: 'глюкоза', dosage: '100мл' },
-                        { id: 2002, type: 'физраствор', dosage: '50мл' }
-                    ]
-                }
-            ],
-            schedule: {
-                201: { 1: [1, 2, 3, 4, 5] }
-            }
-        }
+
     ];
-
+    
+    // Проверка валидности расписания
     $: isScheduleValid = selectedMedications.length > 0 && 
-    selectedMedications.every(medication => 
-        selectedDays[medication.id] && 
-        Object.values(selectedDays[medication.id]).some(daySet => daySet.size > 0)
-    );
-
-    // Реактивная проверка формы
-    $: isFormValid = !!(
-        medicationForm.medication &&
-        medicationForm.administrationType &&
-        medicationForm.dosage &&
-        (medicationForm.hasDiluent === 'нет' || 
-        (medicationForm.hasDiluent === 'да' && 
-        medicationForm.diluents.length > 0 && 
-        medicationForm.diluents.every(d => d.type && d.dosage)))
-    );
-
-    function addDiluent() {
-        medicationForm.diluents = [
-            ...medicationForm.diluents,
-            { id: Date.now(), type: '', dosage: '' }
-        ];
+        selectedMedications.every(medication => 
+            selectedDays[medication.id] && 
+            Object.values(selectedDays[medication.id]).some(daySet => daySet.size > 0)
+        );
+    
+    // Функция для открытия/закрытия главного модального окна
+    function toggleModal() {
+        isModalOpen = !isModalOpen;
+        if (!isModalOpen) {
+            resetState();
+        }
     }
-
+    
+    // Сброс состояния при закрытии
+    function resetState() {
+        currentMedicationForm = getEmptyMedicationForm();
+        selectedMedications = [];
+        selectedDays = {};
+        isCreatingNewScheme = false;
+        currentEditingScheme = null;
+        validationError = '';
+    }
+    
+    // Создание пустой формы препарата
+    function getEmptyMedicationForm() {
+        return {
+            medication: medications[0],
+            administrationType: 'в/м',
+            dosage: '',
+            hasDiluent: 'нет',
+            diluents: []
+        };
+    }
+    
+    // Открыть форму добавления нового препарата
+    function openNewMedicationForm() {
+        currentMedicationForm = getEmptyMedicationForm();
+        editingMedicationId = null;
+        isMedicationFormOpen = true;
+    }
+    
+    // Редактирование препарата
     function editMedication(medication) {
         currentMedicationForm = {
             medication: medications.find(m => m.name === medication.medication.name) || medications[0],
             administrationType: medication.administrationType,
             dosage: medication.dosage,
-            // Проверяем, есть ли растворители
             hasDiluent: medication.diluents && medication.diluents.length > 0 ? 'да' : 'нет',
-            // Делаем глубокую копию массива растворителей
-            diluents: medication.diluents ? [...medication.diluents] : []
+            // Создаем глубокую копию массива растворителей
+            diluents: medication.diluents ? medication.diluents.map(d => ({...d})) : []
         };
         
         editingMedicationId = medication.id;
         isMedicationFormOpen = true;
     }
-
-    // Добавьте функцию handleSaveMedication
-    // В IntegratedTreatmentSchemeButton.svelte
+    
+    // Удаление препарата
+    function deleteMedication(medicationId) {
+        selectedMedications = selectedMedications.filter(med => med.id !== medicationId);
+        
+        if (selectedDays[medicationId]) {
+            delete selectedDays[medicationId];
+            selectedDays = {...selectedDays}; // Триггерим реактивность
+        }
+        
+        validationError = '';
+    }
+    
+    // Обработка сохранения препарата
     function handleSaveMedication(formData) {
         if (editingMedicationId) {
             // Обновление существующего препарата
@@ -244,119 +159,27 @@
                 if (med.id === editingMedicationId) {
                     return {
                         ...formData,
-                        id: med.id,
-                        // Убедимся, что diluents копируется правильно
-                        diluents: [...formData.diluents]
+                        id: med.id
                     };
                 }
                 return med;
             });
             
-            // Сбрасываем режим редактирования
             editingMedicationId = null;
         } else {
             // Добавление нового препарата
             const newMedication = { 
                 ...formData,
-                id: Date.now(), // уникальный идентификатор
-                // Убедимся, что diluents копируется правильно
-                diluents: [...formData.diluents]
+                id: Date.now() // уникальный идентификатор
             };
             
             selectedMedications = [...selectedMedications, newMedication];
         }
         
-        // Закрываем форму
         isMedicationFormOpen = false;
     }
-
-    function deleteMedication(medicationId) {
-        // Удаляем препарат из списка
-        selectedMedications = selectedMedications.filter(med => med.id !== medicationId);
-        
-        // Удаляем расписание для этого препарата
-        if (selectedDays[medicationId]) {
-            delete selectedDays[medicationId];
-            selectedDays = {...selectedDays}; // Триггерим реактивность
-        }
-        
-        // Сбрасываем редактирование, если удаляем тот препарат, который сейчас редактируется
-        if (editingMedicationId === medicationId) {
-            resetMedicationForm();
-        }
-        
-        // Сбрасываем ошибку валидации
-        validationError = '';
-    }
-
-    function removeDiluent(id) {
-        medicationForm.diluents = medicationForm.diluents.filter(d => d.id !== id);
-    }
-
-    function toggleModal() {
-        isModalOpen = !isModalOpen;
-        if (!isModalOpen) {
-            resetState();
-        }
-    }
-
-    function resetState() {
-        medicationForm = {
-            medication: medications[0],
-            administrationType: 'в/м',
-            dosage: '',
-            hasDiluent: 'нет',
-            diluents: []
-        };
-        selectedMedications = [];
-        selectedDays = {};
-        isCreatingNewScheme = false;
-        currentEditingScheme = null;
-        validationError = '';
-    }
-
-    function addMedication() {
-        if (isFormValid) {
-            if (editingMedicationId) {
-                // Обновление существующего препарата
-                selectedMedications = selectedMedications.map(med => {
-                    if (med.id === editingMedicationId) {
-                        return {
-                            ...medicationForm,
-                            id: med.id
-                        };
-                    }
-                    return med;
-                });
-                
-                // Сбрасываем режим редактирования
-                editingMedicationId = null;
-            } else {
-                // Добавление нового препарата
-                const newMedication = { 
-                    ...medicationForm,
-                    id: Date.now() // уникальный идентификатор
-                };
-                
-                selectedMedications = [...selectedMedications, newMedication];
-            }
-            
-            // Сбрасываем форму
-            resetMedicationForm();
-        }
-    }
-
-    function resetMedicationForm() {
-        medicationForm = {
-            medication: medications[0],
-            administrationType: 'в/м',
-            dosage: '',
-            hasDiluent: 'нет',
-            diluents: []
-        };
-        editingMedicationId = null;
-    }
-
+    
+    // Переключение дней в расписании
     function toggleDay(medicationId, week, day) {
         if (!selectedDays[medicationId]) {
             selectedDays[medicationId] = {};
@@ -372,26 +195,24 @@
             selectedDays[medicationId][week].add(day);
         }
 
-        // Триггерим реактивность
-        selectedDays = {...selectedDays};
-
+        selectedDays = {...selectedDays}; // Триггерим реактивность
         validationError = '';
     }
-
+    
+    // Выбор существующей схемы
     function selectExistingScheme(scheme) {
-        console.log('Выбрана схема:', scheme);
-        
-        // Загрузка выбранной схемы в текущий план лечения
+        // Загрузка препаратов схемы
         selectedMedications = scheme.medications.map(med => {
             const medId = med.id || Date.now() + Math.random();
             
             return {
                 id: medId,
                 medication: { name: med.name },
-                administrationType: med.администрationType,
+                administrationType: med.administrationType,
                 dosage: med.dosage,
                 hasDiluent: med.diluents && med.diluents.length > 0 ? 'да' : 'нет',
-                diluents: med.diluents || []
+                // Создаем глубокую копию растворителей
+                diluents: med.diluents ? med.diluents.map(d => ({...d})) : []
             };
         });
         
@@ -411,14 +232,22 @@
         isCreatingNewScheme = true;
         validationError = '';
     }
-
+    
+    // Начать создание новой схемы
     function startNewScheme() {
         isCreatingNewScheme = true;
         selectedMedications = [];
         selectedDays = {};
         validationError = '';
     }
-
+    
+    // Редактирование существующей схемы
+    function editExistingScheme(scheme) {
+        selectExistingScheme(scheme); // Переиспользуем функцию выбора
+        currentEditingScheme = scheme;
+    }
+    
+    // Публикация схемы лечения
     function publishTreatmentScheme() {
         // Проверка валидности расписания
         const medicationsWithoutSchedule = selectedMedications.filter(medication => 
@@ -427,13 +256,13 @@
         );
 
         if (medicationsWithoutSchedule.length > 0) {
-            // Устанавливаем сообщение об ошибке
             const medicationNames = medicationsWithoutSchedule.map(med => med.medication.name).join(', ');
             validationError = `Не выбрано ни одного дня для препаратов: ${medicationNames}`;
             return;
         }
+        
         try {
-            isLoading = true; // Устанавливаем флаг загрузки
+            isLoading = true;
             
             // Преобразуем Set обратно в массивы для хранения
             const formattedSchedule = {};
@@ -456,10 +285,9 @@
                     id: med.id,
                     name: med.medication.name,
                     dosage: med.dosage,
-                    администрationType: med.administrationType,
-                    hasDiluent: med.hasDiluent,
-                    diluent: med.diluent,
-                    diluentDosage: med.diluentDosage
+                    administrationType: med.administrationType,
+                    // Глубокая копия растворителей
+                    diluents: med.diluents ? med.diluents.map(d => ({...d})) : []
                 })),
                 createdFor: {
                     serviceId,
@@ -471,66 +299,28 @@
                 schedule: formattedSchedule
             };
             
-            // Имитация задержки загрузки (в реальном приложении здесь будет API-запрос)
+            // Имитация сохранения (в реальном проекте здесь будет API-вызов)
             setTimeout(() => {
-                // Добавляем в существующие схемы
                 existingSchemes = [...existingSchemes, newScheme];
-                
-                console.log('Опубликована схема лечения', newScheme);
-                
-                // Сбрасываем состояние загрузки
                 isLoading = false;
-                
-                // Закрыть модальное окно
                 toggleModal();
-            }, 1000); // Имитация задержки сервера в 1 секунду
+            }, 1000);
             
         } catch (err) {
             console.error('Ошибка публикации схемы:', err);
-            isLoading = false; // Сбрасываем флаг загрузки в случае ошибки
+            isLoading = false;
         }
     }
-
-    function editExistingScheme(scheme) {
-        console.log('Редактирование схемы:', scheme);
-        
-        // Загрузка препаратов схемы
-        selectedMedications = scheme.medications.map(med => {
-            // Используем существующий ID или генерируем новый
-            const medId = med.id || Date.now() + Math.random();
-            
-            return {
-                id: medId,
-                medication: { name: med.name },
-                administrationType: med.администрationType,
-                dosage: med.dosage,
-                hasDiluent: med.diluents && med.diluents.length > 0 ? 'да' : 'нет',
-                diluents: med.diluents || []
-            };
-        });
-        
-        // Восстанавливаем расписание
-        selectedDays = {};
-        
-        if (scheme.schedule) {
-            // Преобразуем формат расписания из массивов в Set для использования в UI
-            Object.entries(scheme.schedule).forEach(([medId, weeks]) => {
-                selectedDays[medId] = {};
-                
-                Object.entries(weeks).forEach(([week, days]) => {
-                    selectedDays[medId][week] = new Set(days);
-                });
-            });
-        }
-        
-        // Переключаемся в режим создания схемы с пометкой, что это редакция
-        isCreatingNewScheme = true;
-        currentEditingScheme = scheme;
-        validationError = '';
+    
+    // Закрытие модального окна с формой препарата
+    function closeMedicationForm() {
+        isMedicationFormOpen = false;
+        editingMedicationId = null;
     }
 </script>
 
 <div class="treatment-scheme-container">
+    <!-- Главная кнопка -->
     <button 
         on:click={toggleModal} 
         class="treatment-scheme-button"
@@ -539,7 +329,7 @@
         📋 Схема лечения
     </button>
 
-    <!-- Используем компонент модального окна -->
+    <!-- Основное модальное окно -->
     <TreatmentModal
         isOpen={isModalOpen}
         onClose={toggleModal}
@@ -549,9 +339,10 @@
         overlayColor={modalOverlayColor}
     >
         <div class="modal-grid">
+            <!-- Колонка с формой/списком схем -->
             <div class="medication-form-column">
                 {#if !isCreatingNewScheme}
-                    <!-- Используем компонент для списка существующих схем -->
+                    <!-- Список существующих схем -->
                     <ExistingSchemes 
                         schemes={existingSchemes}
                         onSelect={selectExistingScheme}
@@ -561,7 +352,7 @@
                         borderColor={schemesBorderColor}
                     />
 
-                    <!-- Используем компонент для кнопки создания схемы -->
+                    <!-- Кнопка создания схемы -->
                     <CreateSchemeButton 
                         onClick={startNewScheme}
                         buttonBgColor={createButtonBgColor}
@@ -575,73 +366,78 @@
             <!-- График приема препаратов -->
             {#if isCreatingNewScheme}
                 <div class="schedule-column">
-                    <h2>График приема препаратов</h2>
+                    <h3>Создание новой схемы лечения</h3>
                     <div class="schedule-table">
+                        <!-- Заголовки дней -->
                         <div class="schedule-header">
                             <div class="medication-column">Препарат</div>
                             {#each [1,2,3,4,5,6,7,8,9,10] as day}
                                 <div class="day-header">{day}</div>
                             {/each}
                         </div>
-                        {#each selectedMedications as medication (medication.id)}
-                            <div class="schedule-row {!selectedDays[medication.id] || !Object.values(selectedDays[medication.id]).some(daySet => daySet.size > 0) ? 'error-highlight' : ''}">
-                                <div class="medication-cell">
-                                    <div class="medication-title">
-                                        <strong>{medication.medication.name}</strong> {medication.administrationType}, {medication.dosage}
-                                        {#if medication.hasDiluent === 'да' && medication.diluents && medication.diluents.length > 0}
-                                            {#each medication.diluents as diluent}
-                                                + {diluent.type} ({diluent.dosage}) 
-                                            {/each}
-                                        {/if}
+                        
+                        {#if selectedMedications.length > 0}
+                            <!-- Строки с препаратами -->
+                            {#each selectedMedications as medication (medication.id)}
+                                <div class="schedule-row {!selectedDays[medication.id] || !Object.values(selectedDays[medication.id]).some(daySet => daySet.size > 0) ? 'error-highlight' : ''}">
+                                    <div class="medication-cell">
+                                        <div class="medication-title">
+                                            <strong>{medication.medication.name}</strong> {medication.administrationType}, {medication.dosage}
+                                            {#if medication.hasDiluent === 'да' && medication.diluents && medication.diluents.length > 0}
+                                                {#each medication.diluents as diluent}
+                                                    + {diluent.type} ({diluent.dosage}) 
+                                                {/each}
+                                            {/if}
+                                        </div>
+                                        <div class="medication-actions">
+                                            <button class="btn-edit-medication" on:click={() => editMedication(medication)}>
+                                                ✏️
+                                            </button>
+                                            <button class="btn-delete-medication" on:click={() => deleteMedication(medication.id)}>
+                                                🗑️
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div class="medication-actions">
-                                        <button class="btn-edit-medication" on:click={() => editMedication(medication)}>
-                                            ✏️
-                                        </button>
-                                        <button class="btn-delete-medication" on:click={() => deleteMedication(medication.id)}>
-                                            🗑️
-                                        </button>
-                                    </div>
+                                    
+                                    <!-- Ячейки дней -->
+                                    {#each [1,2,3,4,5,6,7,8,9,10] as day}
+                                        <div 
+                                            class="schedule-cell" 
+                                            on:click={() => toggleDay(medication.id, 1, day)}
+                                            class:selected={selectedDays[medication.id] && 
+                                                            selectedDays[medication.id][1] && 
+                                                            selectedDays[medication.id][1].has(day)}
+                                        ></div>
+                                    {/each}
                                 </div>
-                                {#each [1,2,3,4,5,6,7,8,9,10] as day}
-                                    <div 
-                                        class="schedule-cell" 
-                                        on:click={() => toggleDay(medication.id, 1, day)}
-                                        class:selected={selectedDays[medication.id] && 
-                                                        selectedDays[medication.id][1] && 
-                                                        selectedDays[medication.id][1].has(day)}
-                                    ></div>
-                                {/each}
-                            </div>
-                        {/each}
+                            {/each}
+                        {:else}
+                            <p class="empty">Пока назначений нет</p>
+                        {/if}
+
                     </div>
 
-                    <button 
-                        class="btn-continue" 
-                        disabled={selectedMedications.length === 0 || isLoading || !isScheduleValid}
-                        on:click={publishTreatmentScheme}
-                    >
-                    {#if isLoading}
-                      <span class="spinner"></span> Сохранение...
-                    {:else}
-                      Опубликовать схему
-                    {/if}
-                  </button>
-                  <button 
-                    class="btn-add-medication" 
-                    on:click={() => {
-                        currentMedicationForm = {
-                            medication: medications[0],
-                            administrationType: 'в/м',
-                            dosage: '',
-                            hasDiluent: 'нет',
-                            diluents: []
-                        };
-                        isMedicationFormOpen = true;
-                    }}
-                >
-                    + Добавить препарат
-                </button>
+                    <!-- Кнопки действий -->
+                    <div class="schedule-actions">
+                        <button 
+                            class="btn-add-medication" 
+                            on:click={openNewMedicationForm}
+                        >
+                            + Добавить препарат
+                        </button>
+
+                        <button 
+                            class="btn-continue" 
+                            disabled={selectedMedications.length === 0 || isLoading || !isScheduleValid}
+                            on:click={publishTreatmentScheme}
+                        >
+                            {#if isLoading}
+                                <span class="spinner"></span> Сохранение...
+                            {:else}
+                                Опубликовать схему
+                            {/if}
+                        </button>
+                    </div>
                 </div>
             {/if}
         </div>
@@ -653,21 +449,29 @@
             </div>
         {/if}
     </TreatmentModal>
+    
+    <!-- Модальное окно добавления/редактирования препарата -->
+    <MedicationFormModal
+        isOpen={isMedicationFormOpen}
+        onClose={closeMedicationForm}
+        medications={medications}
+        medicationForm={currentMedicationForm}
+        isEditing={!!editingMedicationId}
+        onSave={handleSaveMedication}
+    />
 </div>
 
-<MedicationFormModal
-    isOpen={isMedicationFormOpen}
-    onClose={() => {
-        isMedicationFormOpen = false;
-        editingMedicationId = null;
-    }}
-    medications={medications}
-    medicationForm={currentMedicationForm}
-    isEditing={!!editingMedicationId}
-    onSave={handleSaveMedication}
-/>
-
 <style>
+    h3{
+        font-size: 21px;
+        margin: 0 0 15px 0;
+        padding: 0;
+    }
+
+    .empty{
+        text-align: center;
+    }
+
     .treatment-scheme-button {
         background-color: var(--bg-color, #007bff);
         color: var(--text-color, white);
@@ -687,37 +491,11 @@
         gap: 20px;
     }
 
-    .medication-form-column {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
-
+    .medication-form-column, 
     .schedule-column {
         display: flex;
         flex-direction: column;
         gap: 10px;
-    }
-
-    .form-control {
-        width: 100%;
-        margin-bottom: 10px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        font-size: 14px;
-    }
-
-    .administration-type, .diluent-choice {
-        display: flex;
-        gap: 15px;
-        margin-bottom: 10px;
-    }
-
-    .administration-type label, 
-    .diluent-choice label {
-        display: flex;
-        align-items: center;
-        gap: 5px;
     }
 
     .schedule-table {
@@ -731,7 +509,8 @@
         text-align: center;
     }
 
-    .day-header, .medication-column {
+    .day-header, 
+    .medication-column {
         padding: 5px;
         border-right: 1px solid #ddd;
     }
@@ -742,17 +521,14 @@
     }
 
     .medication-cell {
-        gap: 15px;
         display: flex;
-        align-items: center;
-        justify-content: center;
+        justify-content: space-between;
         padding: 10px;
         border-right: 1px solid #ddd;
         background-color: #f8f9fa;
     }
 
     .schedule-cell {
-        width: 50px;
         border: 1px solid #ddd;
         cursor: pointer;
         transition: background-color 0.3s;
@@ -766,66 +542,6 @@
         background-color: #007bff;
     }
 
-    .btn-add, .btn-continue {
-        background-color: #2196F3;
-        color: white;
-        border: none;
-        padding: 8px 16px;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-
-    .btn-add:disabled, .btn-continue:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .diluents-container {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        margin-bottom: 12px;
-    }
-
-    .diluent-row {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-    }
-
-    .diluent-select {
-        flex: 3;
-    }
-
-    .diluent-dosage {
-        flex: 2;
-    }
-
-    .btn-remove-diluent {
-        background: #dc3545;
-        color: white;
-        border: none;
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        font-size: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-    }
-
-    .btn-add-diluent {
-        background: #6c757d;
-        color: white;
-        border: none;
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 12px;
-        cursor: pointer;
-        align-self: flex-start;
-    }
-    
     .error-highlight .medication-cell {
         background-color: #fff4f4;
         border-left: 3px solid #dc3545;
@@ -840,14 +556,15 @@
         border-left: 4px solid #ffc107;
         font-size: 14px;
     }
-    
+
     .medication-actions {
         margin-top: 5px;
         display: flex;
         gap: 5px;
     }
 
-    .btn-edit-medication, .btn-delete-medication {
+    .btn-edit-medication, 
+    .btn-delete-medication {
         padding: 2px 5px;
         font-size: 12px;
         border: none;
@@ -863,7 +580,38 @@
     .btn-delete-medication:hover {
         background-color: #fff5f5;
     }
-    
+
+    .schedule-actions {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 10px;
+    }
+
+    .btn-continue {
+        background-color: #2196F3;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 18px;
+    }
+
+    .btn-continue:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .btn-add-medication {
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 18px;
+    }
+
     .spinner {
         display: inline-block;
         width: 16px;
@@ -873,23 +621,6 @@
         border-top-color: white;
         animation: spin 1s ease-in-out infinite;
         margin-right: 8px;
-    }
-
-    .schedule-header-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
-    }
-    
-    .btn-add-medication {
-        background-color: #2196F3;
-        color: white;
-        border: none;
-        padding: 6px 12px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
     }
 
     @keyframes spin {
