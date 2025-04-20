@@ -1,9 +1,10 @@
+
 <script>
   export let serviceId = null;
   export let medicalCardId = null;
 
   let isModalOpen = false;
-  let isExistingSchemesModalOpen = false;
+  let isCreatingNewScheme = false;
   let medications = [
     { id: 1, name: 'Цефтриаксон', type: 'в/м' },
     { id: 2, name: 'Метронидазол', type: 'в/в' },
@@ -56,10 +57,6 @@
     }
   }
 
-  function toggleExistingSchemesModal() {
-    isExistingSchemesModalOpen = !isExistingSchemesModalOpen;
-  }
-
   function resetState() {
     medicationForm = {
       medication: medications[0],
@@ -71,6 +68,7 @@
     };
     selectedMedications = [];
     selectedDays = {};
+    isCreatingNewScheme = false;
   }
 
   function addMedication() {
@@ -121,7 +119,20 @@
 
   function selectExistingScheme(scheme) {
     console.log('Выбрана схема:', scheme);
-    toggleExistingSchemesModal();
+    // Загрузка выбранной схемы в текущий план лечения
+    selectedMedications = scheme.medications.map(med => ({
+      ...med,
+      id: Date.now(),
+      medication: { name: med.name },
+      administrationType: med.администрationType
+    }));
+    toggleModal();
+  }
+
+  function startNewScheme() {
+    isCreatingNewScheme = true;
+    selectedMedications = [];
+    selectedDays = {};
   }
 
   function publishTreatmentScheme() {
@@ -141,127 +152,142 @@
   </button>
 
   {#if isModalOpen}
-    <div class="modal-overlay" on:click={toggleModal}>
+    <div 
+      class="modal-overlay" 
+      on:mousedown={(e) => {
+        // Закрываем только если клик был именно по overlay
+        if (e.target.classList.contains('modal-overlay')) {
+          toggleModal();
+        }
+      }}
+    >
       <div class="modal-content" on:click|stopPropagation>
         <button class="modal-close" on:click={toggleModal}>✖</button>
         
         <div class="modal-grid">
           <div class="medication-form-column">
-            <h2>Добавление препарата</h2>
-            
-            <select 
-              bind:value={medicationForm.medication}
-              class="form-control"
-            >
-              {#each medications as med}
-                <option value={med}>{med.name}</option>
-              {/each}
-            </select>
+            {#if !isCreatingNewScheme}
+              <div class="existing-schemes">
+                <h2>Существующие схемы лечения</h2>
+                {#if existingSchemes.length}
+                  {#each existingSchemes as scheme}
+                    <div 
+                      class="scheme-item" 
+                      on:click={() => selectExistingScheme(scheme)}
+                    >
+                      <strong>{scheme.name}</strong>
+                      {#each scheme.medications as med}
+                        <div class="medication-details">
+                          {med.name}, {med.dosage} ({med.администрationType})
+                        </div>
+                      {/each}
+                    </div>
+                  {/each}
+                {:else}
+                  <p>Нет существующих схем</p>
+                {/if}
+              </div>
 
-            <div class="administration-type">
-              <label>
-                <input 
-                  type="radio" 
-                  value="в/м"
-                  bind:group={medicationForm.administrationType}
-                > 
-                Внутримышечно
-              </label>
-              <label>
-                <input 
-                  type="radio" 
-                  value="в/в"
-                  bind:group={medicationForm.administrationType}
-                > 
-                Внутривенно
-              </label>
-            </div>
-
-            <input 
-              type="text" 
-              placeholder="Дозировка препарата"
-              bind:value={medicationForm.dosage}
-              class="form-control"
-            />
-            
-            <div class="diluent-choice">
-              <label>Использовать растворитель:</label>
-              <label>
-                <input 
-                  type="radio" 
-                  value="нет"
-                  bind:group={medicationForm.hasDiluent}
-                > 
-                Нет
-              </label>
-              <label>
-                <input 
-                  type="radio" 
-                  value="да"
-                  bind:group={medicationForm.hasDiluent}
-                > 
-                Да
-              </label>
-            </div>
-
-            {#if medicationForm.hasDiluent === 'да'}
+              <button 
+                class="btn-add-new-scheme"
+                on:click={startNewScheme}
+              >
+                + Создать новую схему
+              </button>
+            {:else}
+              <h2>Добавление препарата</h2>
+              
               <select 
-                bind:value={medicationForm.diluent}
+                bind:value={medicationForm.medication}
                 class="form-control"
               >
-                <option value="">Выберите растворитель</option>
-                <option value="глюкоза">Глюкоза</option>
-                <option value="физраствор">Физраствор</option>
+                {#each medications as med}
+                  <option value={med}>{med.name}</option>
+                {/each}
               </select>
+
+              <div class="administration-type">
+                <label>
+                  <input 
+                    type="radio" 
+                    value="в/м"
+                    bind:group={medicationForm.administrationType}
+                  > 
+                  Внутримышечно
+                </label>
+                <label>
+                  <input 
+                    type="radio" 
+                    value="в/в"
+                    bind:group={medicationForm.administrationType}
+                  > 
+                  Внутривенно
+                </label>
+              </div>
 
               <input 
                 type="text" 
-                placeholder="Дозировка растворителя"
-                bind:value={medicationForm.diluentDosage}
+                placeholder="Дозировка препарата"
+                bind:value={medicationForm.dosage}
                 class="form-control"
               />
-            {/if}
+              
+              <div class="diluent-choice">
+                <label>Использовать растворитель:</label>
+                <label>
+                  <input 
+                    type="radio" 
+                    value="нет"
+                    bind:group={medicationForm.hasDiluent}
+                  > 
+                  Нет
+                </label>
+                <label>
+                  <input 
+                    type="radio" 
+                    value="да"
+                    bind:group={medicationForm.hasDiluent}
+                  > 
+                  Да
+                </label>
+              </div>
 
-            <button 
-              class="btn-add" 
-              disabled={!isFormValid}
-              on:click={addMedication}
-            >
-              Добавить препарат
-            </button>
+              {#if medicationForm.hasDiluent === 'да'}
+                <select 
+                  bind:value={medicationForm.diluent}
+                  class="form-control"
+                >
+                  <option value="">Выберите растворитель</option>
+                  <option value="глюкоза">Глюкоза</option>
+                  <option value="физраствор">Физраствор</option>
+                </select>
 
-            <div class="existing-schemes">
-              <h2>Существующие схемы</h2>
-              {#if existingSchemes.length}
-                {#each existingSchemes as scheme}
-                  <div 
-                    class="scheme-item" 
-                    on:click={() => selectExistingScheme(scheme)}
-                  >
-                    <strong>{scheme.name}</strong>
-                    {#each scheme.medications as med}
-                      <div class="medication-details">
-                        {med.name}, {med.dosage} ({med.administrationType})
-                      </div>
-                    {/each}
-                  </div>
-                {/each}
-              {:else}
-                <p>Нет существующих схем</p>
+                <input 
+                  type="text" 
+                  placeholder="Дозировка растворителя"
+                  bind:value={medicationForm.diluentDosage}
+                  class="form-control"
+                />
               {/if}
-            </div>
+
+              <button 
+                class="btn-add" 
+                disabled={!isFormValid}
+                on:click={addMedication}
+              >
+                Добавить препарат
+              </button>
+            {/if}
           </div>
 
-          <div class="schedule-column">
-            <h2>График приема препаратов</h2>
-            
-            {#if selectedMedications.length === 0}
-              <p class="no-medications">Нет препаратов</p>
-            {:else}
+          {#if isCreatingNewScheme && selectedMedications.length > 0}
+            <div class="schedule-column">
+              <h2>График приема препаратов</h2>
+              
               <div class="schedule-table">
                 <div class="schedule-header">
                   <div class="medication-column">Препарат</div>
-                  {#each [1,2,3,4,5,6,7] as day}
+                  {#each [1,2,3,4,5,6,7,8,9,10] as day}
                     <div class="day-header">День {day}</div>
                   {/each}
                 </div>
@@ -277,7 +303,7 @@
                         </div>
                       {/if}
                     </div>
-                    {#each [1,2,3,4,5,6,7] as day}
+                    {#each [1,2,3,4,5,6,7,8,9,10] as day}
                       <div 
                         class="schedule-cell" 
                         on:click={() => toggleDay(medication.id, 1, day)}
@@ -289,21 +315,22 @@
                   </div>
                 {/each}
               </div>
-            {/if}
 
-            <button 
-              class="btn-continue" 
-              disabled={selectedMedications.length === 0}
-              on:click={publishTreatmentScheme}
-            >
-              Опубликовать схему
-            </button>
-          </div>
+              <button 
+                class="btn-continue" 
+                disabled={selectedMedications.length === 0}
+                on:click={publishTreatmentScheme}
+              >
+                Опубликовать схему
+              </button>
+            </div>
+          {/if}
         </div>
       </div>
     </div>
   {/if}
 </div>
+
 
 <style>
   .treatment-scheme-button {
@@ -331,7 +358,7 @@
   .modal-content {
     background: white;
     border-radius: 8px;
-    width: 900px;
+    max-width: 1100px;
     max-height: 80%;
     position: relative;
     padding: 20px;
@@ -348,6 +375,7 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
+    max-width: 350px;
   }
 
   .schedule-column {
@@ -394,7 +422,7 @@
 
   .schedule-header {
     display: grid;
-    grid-template-columns: 200px repeat(7, 1fr);
+    grid-template-columns: 400px repeat(10, 1fr);
     background-color: #f0f0f0;
     text-align: center;
   }
@@ -406,7 +434,7 @@
 
   .schedule-row {
     display: grid;
-    grid-template-columns: 200px repeat(7, 1fr);
+    grid-template-columns: 400px repeat(10, 1fr);
   }
 
   .medication-cell {
@@ -428,12 +456,6 @@
 
   .schedule-cell.selected {
     background-color: #007bff;
-  }
-
-  .no-medications {
-    text-align: center;
-    color: #6c757d;
-    padding: 20px;
   }
 
   .btn-add, .btn-continue {
@@ -488,4 +510,46 @@
     margin-top: 5px;
   }
 
+  .btn-add-new-scheme {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 4px;
+    margin-top: 10px;
+    cursor: pointer;
+    width: 100%;
+  }
+  .btn-add-new-scheme {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 4px;
+    margin-top: 10px;
+    cursor: pointer;
+    width: 100%;
+  }
+
+  .btn-add-new-scheme {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 4px;
+    margin-top: 10px;
+    cursor: pointer;
+    width: 100%;
+  }
+
+  .btn-add-new-scheme {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 4px;
+    margin-top: 10px;
+    cursor: pointer;
+    width: 100%;
+  }
 </style>
