@@ -11,6 +11,7 @@
         { id: 3, name: 'Ибупрофен', type: 'в/м' }
     ];
 
+    let validationError = '';
     let isLoading = false;
 
     let medicationForm = {
@@ -20,7 +21,8 @@
         hasDiluent: 'нет',
         diluents: [] // Массив растворителей вместо единичных полей
     };
-
+    
+    let editingMedicationId = null;
     let currentEditingScheme = null;
 
     let selectedMedications = [];
@@ -66,8 +68,14 @@
         }
     ];
 
+    $: isScheduleValid = selectedMedications.length > 0 && 
+    selectedMedications.every(medication => 
+        selectedDays[medication.id] && 
+        Object.values(selectedDays[medication.id]).some(daySet => daySet.size > 0)
+    );
+
     // Реактивная проверка формы
-        $: isFormValid = !!(
+    $: isFormValid = !!(
         medicationForm.medication &&
         medicationForm.administrationType &&
         medicationForm.dosage &&
@@ -78,15 +86,50 @@
     );
 
     function addDiluent() {
-    medicationForm.diluents = [
-        ...medicationForm.diluents,
-        { id: Date.now(), type: '', dosage: '' }
-    ];
-}
+        medicationForm.diluents = [
+            ...medicationForm.diluents,
+            { id: Date.now(), type: '', dosage: '' }
+        ];
+    }
 
-function removeDiluent(id) {
-    medicationForm.diluents = medicationForm.diluents.filter(d => d.id !== id);
-}
+    function editMedication(medication) {
+        // Заполняем форму данными выбранного препарата
+        medicationForm = {
+            medication: medications.find(m => m.name === medication.medication.name) || medications[0],
+            administrationType: medication.administrationType,
+            dosage: medication.dosage,
+            hasDiluent: medication.hasDiluent,
+            diluents: [...medication.diluents]
+        };
+        
+        // Запоминаем ID редактируемого препарата
+        editingMedicationId = medication.id;
+    }
+
+    function deleteMedication(medicationId) {
+        // Удаляем препарат из списка
+        selectedMedications = selectedMedications.filter(med => med.id !== medicationId);
+        
+        // Удаляем расписание для этого препарата
+        if (selectedDays[medicationId]) {
+            delete selectedDays[medicationId];
+            selectedDays = {...selectedDays}; // Триггерим реактивность
+        }
+        
+        // Сбрасываем редактирование, если удаляем тот препарат, который сейчас редактируется
+        if (editingMedicationId === medicationId) {
+            resetMedicationForm();
+        }
+        
+        // Сбрасываем ошибку валидации
+        validationError = '';
+    }
+
+    
+
+    function removeDiluent(id) {
+        medicationForm.diluents = medicationForm.diluents.filter(d => d.id !== id);
+    }
 
     function toggleModal() {
         isModalOpen = !isModalOpen;
@@ -107,31 +150,49 @@ function removeDiluent(id) {
     selectedDays = {};
     isCreatingNewScheme = false;
     currentEditingScheme = null;
+    validationError = ''
 }
 
     function addMedication() {
         if (isFormValid) {
-            const newMedication = { 
-                ...medicationForm,
-                id: Date.now() // уникальный идентификатор
-            };
-
-            // Если нет растворителя, обнуляем его поля
-            if (newMedication.hasDiluent === 'нет') {
-                newMedication.diluents = [];
+            if (editingMedicationId) {
+                // Обновление существующего препарата
+                selectedMedications = selectedMedications.map(med => {
+                    if (med.id === editingMedicationId) {
+                        return {
+                            ...medicationForm,
+                            id: med.id
+                        };
+                    }
+                    return med;
+                });
+                
+                // Сбрасываем режим редактирования
+                editingMedicationId = null;
+            } else {
+                // Добавление нового препарата
+                const newMedication = { 
+                    ...medicationForm,
+                    id: Date.now() // уникальный идентификатор
+                };
+                
+                selectedMedications = [...selectedMedications, newMedication];
             }
-
-            selectedMedications = [...selectedMedications, newMedication];
-
+            
             // Сбрасываем форму
-            medicationForm = {
-                medication: medications[0],
-                administrationType: 'в/м',
-                dosage: '',
-                hasDiluent: 'нет',
-                diluents: []
-            };
+            resetMedicationForm();
         }
+    }
+
+    function resetMedicationForm() {
+        medicationForm = {
+            medication: medications[0],
+            administrationType: 'в/м',
+            dosage: '',
+            hasDiluent: 'нет',
+            diluents: []
+        };
+        editingMedicationId = null;
     }
 
     function toggleDay(medicationId, week, day) {
@@ -151,6 +212,8 @@ function removeDiluent(id) {
 
         // Триггерим реактивность
         selectedDays = {...selectedDays};
+
+        validationError = '';
     }
 
     function selectExistingScheme(scheme) {
@@ -185,15 +248,29 @@ function removeDiluent(id) {
     
     isCreatingNewScheme = true;
     toggleModal();
+    validationError = ''
 }
 
     function startNewScheme() {
         isCreatingNewScheme = true;
         selectedMedications = [];
         selectedDays = {};
+        validationError = '';
     }
 
     function publishTreatmentScheme() {
+    // Проверка валидности расписания
+    const medicationsWithoutSchedule = selectedMedications.filter(medication => 
+        !selectedDays[medication.id] || 
+        !Object.values(selectedDays[medication.id]).some(daySet => daySet.size > 0)
+    );
+
+    if (medicationsWithoutSchedule.length > 0) {
+        // Устанавливаем сообщение об ошибке
+        const medicationNames = medicationsWithoutSchedule.map(med => med.medication.name).join(', ');
+        validationError = `Не выбрано ни одного дня для препаратов: ${medicationNames}`;
+        return;
+    }
     try {
         isLoading = true; // Устанавливаем флаг загрузки
         
@@ -288,6 +365,7 @@ function editExistingScheme(scheme) {
     // Переключаемся в режим создания схемы с пометкой, что это редакция
     isCreatingNewScheme = true;
     currentEditingScheme = scheme;
+    validationError = '';
 }
 </script>
 
@@ -317,12 +395,14 @@ function editExistingScheme(scheme) {
                                 {#if existingSchemes.length}
                                     {#each existingSchemes as scheme}
                                     <div class="scheme-item">
-                                        <strong>{scheme.name}</strong>
-                                        {#each scheme.medications as med}
-                                          <div class="medication-details">
-                                            {med.name}, {med.dosage} ({med.администрationType})
-                                          </div>
-                                        {/each}
+                                        <div class="scheme-title">
+                                            <strong>{scheme.name} </strong>
+                                            {#each scheme.medications as med}
+                                              <div class="medication-details">
+                                                {med.name}, {med.dosage} ({med.администрationType})
+                                              </div>
+                                            {/each}
+                                        </div>
                                         <div class="scheme-actions">
                                           <button 
                                             class="btn-use-scheme"
@@ -457,7 +537,7 @@ function editExistingScheme(scheme) {
                                 disabled={!isFormValid}
                                 on:click={addMedication}
                             >
-                                Добавить препарат
+                                {editingMedicationId ? 'Сохранить изменения' : 'Добавить препарат'}
                             </button>
                         {/if}
                     </div>
@@ -470,19 +550,28 @@ function editExistingScheme(scheme) {
                                 <div class="schedule-header">
                                     <div class="medication-column">Препарат</div>
                                     {#each [1,2,3,4,5,6,7,8,9,10] as day}
-                                        <div class="day-header">День {day}</div>
+                                        <div class="day-header">{day}</div>
                                     {/each}
                                 </div>
                                 {#each selectedMedications as medication (medication.id)}
-                                    <div class="schedule-row">
+                                    <div class="schedule-row {!selectedDays[medication.id] || !Object.values(selectedDays[medication.id]).some(daySet => daySet.size > 0) ? 'error-highlight' : ''}">
                                         <div class="medication-cell">
-                                            <strong>{medication.medication.name}</strong> {medication.administrationType}, {medication.dosage}
-                                            {#if medication.hasDiluent === 'да' && medication.diluents.length > 0}
-                                                {#each medication.diluents as diluent, index}
-                                                    + {diluent.type} ({diluent.dosage}) 
-                                                {/each}
-                                            {/if}
-                                            <!-- Остальное содержимое -->
+                                            <div class="medication-title">
+                                                <strong>{medication.medication.name}</strong> {medication.administrationType}, {medication.dosage}
+                                                {#if medication.hasDiluent === 'да' && medication.diluents.length > 0}
+                                                    {#each medication.diluents as diluent}
+                                                        + {diluent.type} ({diluent.dosage}) 
+                                                    {/each}
+                                                {/if}
+                                            </div>
+                                            <div class="medication-actions">
+                                                <button class="btn-edit-medication" on:click={() => editMedication(medication)}>
+                                                    ✏️
+                                                </button>
+                                                <button class="btn-delete-medication" on:click={() => deleteMedication(medication.id)}>
+                                                    🗑️
+                                                </button>
+                                            </div>
                                         </div>
                                         {#each [1,2,3,4,5,6,7,8,9,10] as day}
                                             <div 
@@ -498,10 +587,10 @@ function editExistingScheme(scheme) {
                             </div>
 
                             <button 
-                            class="btn-continue" 
-                            disabled={selectedMedications.length === 0 || isLoading}
-                            on:click={publishTreatmentScheme}
-                          >
+                                class="btn-continue" 
+                                disabled={selectedMedications.length === 0 || isLoading || !isScheduleValid}
+                                on:click={publishTreatmentScheme}
+                            >
                             {#if isLoading}
                               <span class="spinner"></span> Сохранение...
                             {:else}
@@ -511,6 +600,11 @@ function editExistingScheme(scheme) {
                         </div>
                     {/if}
                 </div>
+                {#if validationError}
+                    <div class="validation-error">
+                        ⚠️ {validationError}
+                    </div>
+                {/if}
             </div>
         </div>
     {/if}
@@ -623,13 +717,17 @@ function editExistingScheme(scheme) {
     }
 
     .medication-cell {
+        gap: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         padding: 10px;
         border-right: 1px solid #ddd;
         background-color: #f8f9fa;
     }
 
     .schedule-cell {
-        height: 30px;
+        width: 50px;
         border: 1px solid #ddd;
         cursor: pointer;
         transition: background-color 0.3s;
@@ -820,5 +918,40 @@ function editExistingScheme(scheme) {
     cursor: pointer;
     align-self: flex-start;
 }
+.error-highlight .medication-cell {
+    background-color: #fff4f4;
+    border-left: 3px solid #dc3545;
+}
 
+.validation-error {
+    background-color: #fff3cd;
+    color: #856404;
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+    border-left: 4px solid #ffc107;
+    font-size: 14px;
+}
+.medication-actions {
+    margin-top: 5px;
+    display: flex;
+    gap: 5px;
+}
+
+.btn-edit-medication, .btn-delete-medication {
+    padding: 2px 5px;
+    font-size: 12px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    background-color: transparent;
+}
+
+.btn-edit-medication:hover {
+    background-color: #f0f0f0;
+}
+
+.btn-delete-medication:hover {
+    background-color: #fff5f5;
+}
 </style>
