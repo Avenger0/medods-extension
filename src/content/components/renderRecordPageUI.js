@@ -1,4 +1,4 @@
-import TreatmentSchemeButton from '../../ui/TreatmentSchemeButton.svelte';
+import IntegratedTreatmentSchemeButton from '../../ui/IntegratedTreatmentSchemeButton.svelte';
 
 const TARGET_SELECTOR = '#show_info_table_title';
 const TREATMENT_SCHEME_ID = 'treatment-scheme-container';
@@ -13,6 +13,19 @@ const state = {
   
   debug: true,
   instanceId: Math.random().toString(36).substring(2, 9),
+
+  styleConfigs: {
+    // Пример стилизации для одного учреждения
+    'clinic1': {
+      mainButtonBgColor: '#4CAF50', // Зеленый
+      mainButtonTextColor: 'white',
+      schemesBgColor: '#f0f8ff', // Светло-голубой фон
+      schemesTitleColor: '#2c3e50',
+      useButtonBgColor: '#3498db', // Синий
+      editButtonBgColor: '#9b59b6', // Фиолетовый
+      createButtonBgColor: '#e74c3c', // Красный
+    }
+  },
   
   log(type, message, ...data) {
     if (!this.debug) return;
@@ -129,11 +142,14 @@ function checkAndMountIfNeeded(force = false) {
       targetElement.appendChild(treatmentSchemeContainer);
       
       try {
-        new TreatmentSchemeButton({ 
+        // Создаем экземпляр компонента с настройками стилей
+        new IntegratedTreatmentSchemeButton({ 
           target: treatmentSchemeContainer,
           props: {
             serviceId: urlInfo.recordId,
-            medicalCardId: urlInfo.patientId
+            medicalCardId: urlInfo.patientId,
+            // Передаем настройки стилей
+            ...state.styleConfigs.clinic1
           }
         });
         state.log('success', 'Компонент TreatmentSchemeButton успешно смонтирован');

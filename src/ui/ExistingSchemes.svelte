@@ -1,0 +1,64 @@
+<!-- src/ui/ExistingSchemes.svelte -->
+<script>
+    import SchemeItem from './SchemeItem.svelte';
+    
+    // Входные параметры
+    export let schemes = [];
+    export let onSelect;
+    export let onEdit;
+    
+    // Стилевые пропсы
+    export let bgColor = '#f8f9fa';
+    export let titleColor = '#333';
+    export let borderColor = '#e9ecef';
+  </script>
+  
+  <div class="existing-schemes" style="--bg-color: {bgColor}; --title-color: {titleColor}; --border-color: {borderColor};">
+    <h2>Существующие схемы лечения</h2>
+    
+    {#if schemes.length}
+      <div class="schemes-list">
+        {#each schemes as scheme (scheme.id)}
+          <SchemeItem 
+            {scheme} 
+            onSelect={() => onSelect(scheme)}
+            onEdit={() => onEdit(scheme)}
+          />
+        {/each}
+      </div>
+    {:else}
+      <p class="no-schemes">Нет существующих схем</p>
+    {/if}
+  </div>
+  
+  <style>
+    .existing-schemes {
+      margin-top: 20px;
+      background-color: var(--bg-color, #f8f9fa);
+      border-radius: 6px;
+      padding: 15px;
+      border: 1px solid var(--border-color, #e9ecef);
+    }
+    
+    h2 {
+      margin-top: 0;
+      color: var(--title-color, #333);
+      font-size: 1.2rem;
+      margin-bottom: 15px;
+      border-bottom: 1px solid var(--border-color, #e9ecef);
+      padding-bottom: 10px;
+    }
+    
+    .schemes-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .no-schemes {
+      font-style: italic;
+      color: #6c757d;
+      text-align: center;
+      padding: 15px 0;
+    }
+  </style>

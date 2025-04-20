@@ -1,7 +1,8 @@
-<!-- src/ui/TreatmentSchemeButton.svelte -->
+<!-- src/ui/IntegratedTreatmentSchemeButton.svelte -->
 <script>
     // Импортируем все созданные компоненты
     import ExistingSchemes from './ExistingSchemes.svelte';
+    import SchemeItem from './SchemeItem.svelte';
     import CreateSchemeButton from './CreateSchemeButton.svelte';
     import TreatmentModal from './TreatmentModal.svelte';
     
@@ -90,6 +91,82 @@
         },
         { 
             id: 2, 
+            name: 'Схема лечения №2', 
+            medications: [
+                { 
+                    id: 201, 
+                    name: 'Метронидазол', 
+                    dosage: '500мг', 
+                    администрationType: 'в/в',
+                    diluents: [
+                        { id: 2001, type: 'глюкоза', dosage: '100мл' },
+                        { id: 2002, type: 'физраствор', dosage: '50мл' }
+                    ]
+                }
+            ],
+            schedule: {
+                201: { 1: [1, 2, 3, 4, 5] }
+            }
+        },
+        { 
+            id: 3, 
+            name: 'Схема лечения №2', 
+            medications: [
+                { 
+                    id: 201, 
+                    name: 'Метронидазол', 
+                    dosage: '500мг', 
+                    администрationType: 'в/в',
+                    diluents: [
+                        { id: 2001, type: 'глюкоза', dosage: '100мл' },
+                        { id: 2002, type: 'физраствор', dosage: '50мл' }
+                    ]
+                }
+            ],
+            schedule: {
+                201: { 1: [1, 2, 3, 4, 5] }
+            }
+        },
+        { 
+            id: 4, 
+            name: 'Схема лечения №2', 
+            medications: [
+                { 
+                    id: 201, 
+                    name: 'Метронидазол', 
+                    dosage: '500мг', 
+                    администрationType: 'в/в',
+                    diluents: [
+                        { id: 2001, type: 'глюкоза', dosage: '100мл' },
+                        { id: 2002, type: 'физраствор', dosage: '50мл' }
+                    ]
+                }
+            ],
+            schedule: {
+                201: { 1: [1, 2, 3, 4, 5] }
+            }
+        },
+        { 
+            id: 5, 
+            name: 'Схема лечения №2', 
+            medications: [
+                { 
+                    id: 201, 
+                    name: 'Метронидазол', 
+                    dosage: '500мг', 
+                    администрationType: 'в/в',
+                    diluents: [
+                        { id: 2001, type: 'глюкоза', dosage: '100мл' },
+                        { id: 2002, type: 'физраствор', dosage: '50мл' }
+                    ]
+                }
+            ],
+            schedule: {
+                201: { 1: [1, 2, 3, 4, 5] }
+            }
+        },
+        { 
+            id: 6, 
             name: 'Схема лечения №2', 
             medications: [
                 { 
@@ -286,7 +363,6 @@
         }
         
         isCreatingNewScheme = true;
-        toggleModal();
         validationError = '';
     }
 
