@@ -450,7 +450,6 @@
         {/if}
     </TreatmentModal>
     
-    <!-- Модальное окно добавления/редактирования препарата -->
     <MedicationFormModal
         isOpen={isMedicationFormOpen}
         onClose={closeMedicationForm}
@@ -458,6 +457,7 @@
         medicationForm={currentMedicationForm}
         isEditing={!!editingMedicationId}
         onSave={handleSaveMedication}
+        overlayColor="rgba(0,0,0,0)"
     />
 </div>
 

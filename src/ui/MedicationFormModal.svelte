@@ -48,14 +48,14 @@
     onClose={onClose}
     maxWidth="500px"
 >
-    <h2>
+    <h3>
         {isEditing ? 'Редактирование препарата' : 'Добавление препарата'}
-    </h2>
+    </h3>
     
     <!-- Форма добавления медикамента -->
     <select 
         bind:value={medicationForm.medication}
-        class="form-control"
+        class="form-control-ex"
     >
         {#each medications as med}
             <option value={med}>{med.name}</option>
@@ -85,7 +85,7 @@
         type="text" 
         placeholder="Дозировка препарата"
         bind:value={medicationForm.dosage}
-        class="form-control"
+        class="form-control-ex"
     />
     
     <div class="diluent-choice">
@@ -115,7 +115,7 @@
                 <div class="diluent-row">
                     <select 
                         bind:value={diluent.type}
-                        class="form-control diluent-select"
+                        class="form-control-ex diluent-select"
                     >
                         <option value="глюкоза">Глюкоза</option>
                         <option value="физраствор">Физраствор</option>
@@ -125,7 +125,7 @@
                         type="text" 
                         placeholder="Дозировка"
                         bind:value={diluent.dosage}
-                        class="form-control diluent-dosage"
+                        class="form-control-ex diluent-dosage"
                     />
                     
                     <button 
@@ -164,21 +164,28 @@
 </TreatmentModal>
 
 <style>
-    .form-control {
+    h3{
+        font-size: 21px;
+        margin: 0 0 15px 0;
+        padding: 0;
+    }
+    .form-control-ex {
         width: 100%;
         border: 1px solid #ccc;
         border-radius: 4px;
-        font-size: 14px;
+        font-size: 16px !important;
     }
 
     .administration-type, .diluent-choice {
         display: flex;
         gap: 15px;
         margin-bottom: 15px;
+        margin-top: 15px;
     }
 
     .administration-type label, 
     .diluent-choice label {
+        font-size: 16px;
         display: flex;
         align-items: center;
         gap: 5px;
@@ -213,7 +220,7 @@
         width: 24px;
         height: 24px;
         border-radius: 50%;
-        font-size: 10px;
+        font-size: 16px !important;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -226,7 +233,7 @@
         border: none;
         padding: 4px 8px;
         border-radius: 4px;
-        font-size: 12px;
+        font-size: 16px !important;
         cursor: pointer;
         align-self: flex-start;
         margin-top: 5px;

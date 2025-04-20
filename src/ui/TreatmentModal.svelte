@@ -9,22 +9,27 @@
     export let padding = '20px';
     export let boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
     export let zIndex = 1000;
+    export let overlay = true;
     export let overlayColor = 'rgba(0,0,0,0.5)';
-    
+    export let top = 0;
+
     // Закрывать модальное окно только при клике на оверлей
     function handleOverlayClick(e) {
-      if (e.target.classList.contains('modal-overlay')) {
-        onClose();
+      if(overlay){
+        if (e.target.classList.contains('modal-overlay')) {
+          onClose();
+        }
       }
+
     }
   </script>
   
   {#if isOpen}
-    <div 
-      class="modal-overlay" 
-      style="--overlay-color: {overlayColor}; --z-index: {zIndex};"
-      on:mousedown={handleOverlayClick}
-    >
+      <div 
+        class="modal-overlay" 
+        style="--overlay-color: {overlayColor}; --z-index: {zIndex};"
+        on:mousedown={handleOverlayClick}
+      >
       <div 
         class="modal-content" 
         style="
