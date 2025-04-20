@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Svelte Extension Fixed",
+  "version": "1.0",
+  "description": "Svelte + Vite + Chrome Extension (fixed ESM)",
+  "content_scripts": [
+    {
+      "matches": [ "https://teomedia.medods.ru/*", "https://*.medods.ru/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_title": "Svelte Extension"
+  }
+}
