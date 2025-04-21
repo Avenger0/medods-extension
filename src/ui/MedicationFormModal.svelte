@@ -240,6 +240,8 @@
                         <option value="р-р рингер">Раствор Рингера</option>
                         <option value="р-р рингер-локка">Раствор Рингера-Локка</option>
                         <option value="р-р хартман">Раствор Хартмана</option>
+                        <option value="этиловый спирт">Этиловый спирт</option>
+                        <option value="пэг">Полиэтиленгликоль (ПЭГ)</option>
                     </select>
     
                     <input 
