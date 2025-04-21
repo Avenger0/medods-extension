@@ -11,5 +11,8 @@
     "open": "^10.1.1",
     "svelte": "^3.59.2",
     "vite": "^4.5.2"
+  },
+  "dependencies": {
+    "svelte-select": "^5.8.3"
   }
 }

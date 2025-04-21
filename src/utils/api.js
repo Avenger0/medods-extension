@@ -1,6 +1,7 @@
 class JsonRpcClient {
     constructor(baseUrl) {
         this.baseUrl = baseUrl;
+        this.authToken = 'Bearer Vmg2ir22VwGc4WEEq'; // вынесли токен в свойство для гибкости
     }
 
     generateRequestId() {
@@ -21,7 +22,7 @@ class JsonRpcClient {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': 'Bearer Vmg2ir22VwGc4WEEq',
+                    'Authorization': this.authToken,
                     ...options.headers
                 },
                 body: JSON.stringify(requestBody)
@@ -46,4 +47,27 @@ class JsonRpcClient {
     }
 }
 
-export const apiClient = new JsonRpcClient('https://api-sberhealth.gorclinica.ru/medods-extension/1.0/');
+// Создаем экземпляр клиента
+const apiClient = new JsonRpcClient('https://api-sberhealth.gorclinica.ru/medods-extension/1.0/');
+
+// Создаем сервисы для разных типов API-запросов
+export const medicationService = {
+    getAvailableMedications: async () => {
+        return apiClient.request('getAvailableMedications', {});
+    },
+    // Здесь можно добавить другие методы, связанные с лекарствами
+};
+
+export const treatmentService = {
+    // Здесь будут методы для работы со схемами лечения
+    // например:
+    saveTreatmentScheme: async (schemeData) => {
+        return apiClient.request('saveTreatmentScheme', { scheme: schemeData });
+    },
+    getUserTreatmentSchemes: async (userId) => {
+        return apiClient.request('getUserTreatmentSchemes', { userId });
+    }
+};
+
+// Экспортируем сам клиент для случаев, когда нужно вызвать произвольный метод
+export { apiClient };
