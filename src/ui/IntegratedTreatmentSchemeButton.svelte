@@ -5,6 +5,7 @@
     import MedicationFormModal from './MedicationFormModal.svelte';
     import CreateSchemeButton from './CreateSchemeButton.svelte';
     import TreatmentModal from './TreatmentModal.svelte';
+    import { medicationService, treatmentService } from '../utils/api.js';
     
     // Пропсы для интеграции
     export let serviceId = null;
@@ -57,15 +58,36 @@
     $: requireConfirmation = selectedMedications.length > 0 && isCreatingNewScheme;
 
     // Данные препаратов и форм
-    let medications = [
-        { id: 1, name: 'Цефтриаксон', type: 'в/м' },
-        { id: 2, name: 'Метронидазол', type: 'в/в' },
-        { id: 3, name: 'Ибупрофен', type: 'в/м' }
-    ];
+    let medications = [];
+    let isLoadingMedications = false;
+
+    // Вызываем загрузку при первом открытии модального окна
+    $: if (isModalOpen && medications.length === 0 && !isLoadingMedications) {
+        loadMedications();
+    }
+
+    // Функция для загрузки медикаментов с API
+    async function loadMedications() {
+        try {
+            isLoadingMedications = true;
+            const response = await medicationService.cachedRequest('getAvailableMedications', {});
+            medications = response.medications.map(med => ({
+                id: med.id,
+                name: med.shortName,
+                fullName: med.fullName,
+                type: med.type && med.type.length > 0 ? med.type[0] : 'в/м',
+                availableTypes: med.type || ['в/м', 'в/в']
+            }));
+        } catch (error) {
+            console.error('Ошибка загрузки медикаментов:', error);
+        } finally {
+            isLoadingMedications = false;
+        }
+    }
     
     // Текущая форма препарата
     let currentMedicationForm = {
-        medication: medications[0],
+        medication: null,
         administrationType: 'в/м',
         dosage: '',
         hasDiluent: 'нет',
@@ -113,7 +135,7 @@
     // Создание пустой формы препарата
     function getEmptyMedicationForm() {
         return {
-            medication: medications[0],
+            medication: null,
             administrationType: 'в/м',
             dosage: '',
             hasDiluent: 'нет',

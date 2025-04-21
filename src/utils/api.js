@@ -1,7 +1,8 @@
+// src/utils/api.js
 class JsonRpcClient {
     constructor(baseUrl) {
         this.baseUrl = baseUrl;
-        this.authToken = 'Bearer Vmg2ir22VwGc4WEEq'; // вынесли токен в свойство для гибкости
+        this.authToken = 'Bearer Vmg2ir22VwGc4WEEq';
     }
 
     generateRequestId() {
@@ -52,21 +53,42 @@ const apiClient = new JsonRpcClient('https://api-sberhealth.gorclinica.ru/medods
 
 // Создаем сервисы для разных типов API-запросов
 export const medicationService = {
-    getAvailableMedications: async () => {
-        return apiClient.request('getAvailableMedications', {});
+    getAvailableMedications: async (searchTerm = '') => {
+        return apiClient.request('getAvailableMedications', { searchTerm });
     },
-    // Здесь можно добавить другие методы, связанные с лекарствами
+    // Универсальный метод для кэширования результатов запросов
+    cachedRequest: (() => {
+        const cache = {};
+        return async (method, params = {}, cacheTime = 60000) => {
+            const cacheKey = `${method}_${JSON.stringify(params)}`;
+            
+            // Если результат в кэше и не устарел
+            if (cache[cacheKey] && (Date.now() - cache[cacheKey].timestamp < cacheTime)) {
+                return cache[cacheKey].data;
+            }
+            
+            // Иначе делаем запрос
+            const result = await apiClient.request(method, params);
+            
+            // Кэшируем результат
+            cache[cacheKey] = {
+                data: result,
+                timestamp: Date.now()
+            };
+            
+            return result;
+        };
+    })()
 };
 
 export const treatmentService = {
-    // Здесь будут методы для работы со схемами лечения
-    // например:
     saveTreatmentScheme: async (schemeData) => {
         return apiClient.request('saveTreatmentScheme', { scheme: schemeData });
     },
     getUserTreatmentSchemes: async (userId) => {
         return apiClient.request('getUserTreatmentSchemes', { userId });
-    }
+    },
+    // Другие методы для работы со схемами лечения
 };
 
 // Экспортируем сам клиент для случаев, когда нужно вызвать произвольный метод
