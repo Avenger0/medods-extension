@@ -159,7 +159,7 @@
             
             {#if medicationForm.medication && medicationForm.medication.fullName}
                 <div class="selected-medication-info">
-                    Назначение → <span class="full-name">{medicationForm.medication.name}</span>
+                    Вы назначаете →&nbsp;<span class="full-name">{medicationForm.medication.name}</span>
                 </div>
             {/if}
         </div>
@@ -236,6 +236,10 @@
                     >
                         <option value="глюкоза">Глюкоза</option>
                         <option value="физраствор">Физраствор</option>
+                        <option value="вода для инъекций">Вода для инъекций</option>
+                        <option value="р-р рингер">Раствор Рингера</option>
+                        <option value="р-р рингер-локка">Раствор Рингера-Локка</option>
+                        <option value="р-р хартман">Раствор Хартмана</option>
                     </select>
     
                     <input 
