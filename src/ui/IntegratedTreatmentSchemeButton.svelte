@@ -14,7 +14,7 @@
     export let modalMaxWidth = '1100px';
     export let modalBgColor = 'white';
     export let modalBorderRadius = '8px';
-    export let modalOverlayColor = 'rgba(0,0,0,0.5)';
+    export let modalOverlayColor = 'rgba(0,0,0,0.2)';
     
     // Стилевые пропсы - список схем
     export let schemesBgColor = '#f8f9fa';
@@ -51,7 +51,11 @@
     let isMedicationFormOpen = false;
     let isLoading = false;
     let validationError = '';
-    
+
+    let requireConfirmation = false;
+
+    $: requireConfirmation = selectedMedications.length > 0 && isCreatingNewScheme;
+
     // Данные препаратов и форм
     let medications = [
         { id: 1, name: 'Цефтриаксон', type: 'в/м' },
@@ -317,6 +321,10 @@
         isMedicationFormOpen = false;
         editingMedicationId = null;
     }
+
+    function goBackToSchemes() {
+        isCreatingNewScheme = false;
+    }
 </script>
 
 <div class="treatment-scheme-container">
@@ -337,11 +345,13 @@
         backgroundColor={modalBgColor}
         borderRadius={modalBorderRadius}
         overlayColor={modalOverlayColor}
+        confirmBeforeClose={requireConfirmation}
     >
         <div class="modal-grid">
             <!-- Колонка с формой/списком схем -->
-            <div class="medication-form-column">
-                {#if !isCreatingNewScheme}
+            
+            {#if !isCreatingNewScheme}
+                <div class="medication-form-column">
                     <!-- Список существующих схем -->
                     <ExistingSchemes 
                         schemes={existingSchemes}
@@ -360,13 +370,25 @@
                         buttonHoverColor={createButtonHoverColor}
                         buttonBorderRadius={createButtonBorderRadius}
                     />
-                {/if}
-            </div>
+                </div>
+            {/if}
+            
 
             <!-- График приема препаратов -->
             {#if isCreatingNewScheme}
                 <div class="schedule-column">
-                    <h3>Создание новой схемы лечения</h3>
+                    <div class="schedule-head">
+                        <h3>Создание новой схемы лечения</h3>
+
+                        {#if selectedMedications.length > 0}
+                            {#if selectedMedications.some(med => !selectedDays[med.id] || !Object.values(selectedDays[med.id]).some(daySet => daySet.size > 0))}
+                                <div class="validation-error">
+                                    ⚠️ Необходимо выбрать дни приема для всех препаратов
+                                </div>
+                            {/if}
+                        {/if}
+                    </div>
+                    
                     <div class="schedule-table">
                         <!-- Заголовки дней -->
                         <div class="schedule-header">
@@ -385,7 +407,7 @@
                                             <strong>{medication.medication.name}</strong> {medication.administrationType}, {medication.dosage}
                                             {#if medication.hasDiluent === 'да' && medication.diluents && medication.diluents.length > 0}
                                                 {#each medication.diluents as diluent}
-                                                    + {diluent.type} ({diluent.dosage}) 
+                                                    {' + '}{diluent.type} ({diluent.dosage}) 
                                                 {/each}
                                             {/if}
                                         </div>
@@ -419,6 +441,8 @@
 
                     <!-- Кнопки действий -->
                     <div class="schedule-actions">
+                        <button class="btn-back" on:click={goBackToSchemes}>← Назад</button>
+
                         <button 
                             class="btn-add-medication" 
                             on:click={openNewMedicationForm}
@@ -434,21 +458,16 @@
                             {#if isLoading}
                                 <span class="spinner"></span> Сохранение...
                             {:else}
-                                Опубликовать схему
+                                Добавить схему
                             {/if}
                         </button>
                     </div>
                 </div>
             {/if}
         </div>
-        
-        <!-- Сообщение об ошибке -->
-        {#if validationError}
-            <div class="validation-error">
-                ⚠️ {validationError}
-            </div>
-        {/if}
     </TreatmentModal>
+
+
     
     <MedicationFormModal
         isOpen={isMedicationFormOpen}
@@ -468,8 +487,16 @@
         padding: 0;
     }
 
+    .schedule-head{
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+    }
+
     .empty{
         text-align: center;
+        font-size: 18px;
+        padding: 15px;
     }
 
     .treatment-scheme-button {
@@ -522,6 +549,8 @@
 
     .medication-cell {
         display: flex;
+        gap: 10px;
+        align-items: center;
         justify-content: space-between;
         padding: 10px;
         border-right: 1px solid #ddd;
@@ -588,7 +617,7 @@
     }
 
     .btn-continue {
-        background-color: #2196F3;
+        background-color: #4CAF50;
         color: white;
         border: none;
         padding: 8px 16px;
@@ -603,7 +632,7 @@
     }
 
     .btn-add-medication {
-        background-color: #4CAF50;
+        background-color: #3FAECA;
         color: white;
         border: none;
         padding: 6px 12px;
@@ -621,6 +650,26 @@
         border-top-color: white;
         animation: spin 1s ease-in-out infinite;
         margin-right: 8px;
+    }
+
+    .btn-back {
+        background-color: transparent;
+        border: none;
+        padding: 5px 10px;
+        font-size: 14px;
+        color: #555;
+        cursor: pointer;
+        margin-right: 10px;
+        border-radius: 4px;
+        font-size: 18px;
+    }
+
+    .btn-back:hover {
+        background-color: #f0f0f0;
+    }
+
+    .medication-title{
+        font-size: 15px;
     }
 
     @keyframes spin {

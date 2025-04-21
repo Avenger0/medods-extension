@@ -2,7 +2,8 @@ import { observeUrlChanges } from './observer.js';
 import { renderUIForRecordPage } from '../components/renderRecordPageUI.js';
 
 const routes = [
-  { match: /\/medical_records\/\d+\/\d+$/, render: renderUIForRecordPage }
+  { match: /\/medical_records\/\d+\/\d+$/, render: renderUIForRecordPage },
+  { match: /\/entries\/\d+$/, render: renderUIForRecordPage }
 ];
 
 let currentMatch = null;

@@ -176,6 +176,10 @@
         font-size: 16px !important;
     }
 
+    .form-control-ex::placeholder {
+        font-size: 16px !important;
+    }
+
     .administration-type, .diluent-choice {
         display: flex;
         gap: 15px;
@@ -251,10 +255,11 @@
         border-radius: 4px;
         cursor: pointer;
         border: none;
+        font-size: 18px;
     }
     
     .btn-save {
-        background-color: #2196F3;
+        background-color: #3FAECA;
         color: white;
     }
     

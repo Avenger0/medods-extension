@@ -37,7 +37,7 @@
         {med.name}, {med.dosage} ({med.administrationType})
         {#if med.diluents && med.diluents.length > 0}
           <span class="diluent-info">
-            + {med.diluents.map(d => `${d.type} (${d.dosage})`).join(', ')}
+            {' + '}{med.diluents.map(d => `${d.type} (${d.dosage})`).join(', ')}
           </span>
         {/if}
       </div>
@@ -47,12 +47,6 @@
   <div class="scheme-actions">
     <button 
       class="btn-use-scheme"
-      on:click|stopPropagation={onSelect}
-    >
-      Использовать
-    </button>
-    <button 
-      class="btn-edit-scheme"
       on:click|stopPropagation={onEdit}
     >
       Редактировать
@@ -83,7 +77,6 @@
   .medication-details {
     color: var(--details-color, #6c757d);
     font-size: 0.9em;
-    margin-top: 5px;
   }
   
   .diluent-info {

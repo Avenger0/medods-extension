@@ -1,53 +1,64 @@
-<!-- src/ui/TreatmentModal.svelte -->
 <script>
-    export let isOpen = false;
-    export let onClose;
-    export let maxWidth = '1100px';
-    export let maxHeight = '80%';
-    export let backgroundColor = 'white';
-    export let borderRadius = '8px';
-    export let padding = '20px';
-    export let boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
-    export let zIndex = 1000;
-    export let overlay = true;
-    export let overlayColor = 'rgba(0,0,0,0.5)';
-    export let top = 0;
+  export let isOpen = false;
+  export let onClose;
+  export let maxWidth = '1100px';
+  export let maxHeight = '80%';
+  export let backgroundColor = 'white';
+  export let borderRadius = '8px';
+  export let padding = '20px';
+  export let boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+  export let zIndex = 1000;
+  export let overlay = true;
+  export let overlayColor = 'rgba(0,0,0,0.2)';
+  export let confirmBeforeClose = false; // Новый параметр
 
-    // Закрывать модальное окно только при клике на оверлей
-    function handleOverlayClick(e) {
-      if(overlay){
-        if (e.target.classList.contains('modal-overlay')) {
-          onClose();
-        }
+  // Функция для подтверждения закрытия
+  function confirmClose() {
+      if (!confirmBeforeClose) return true;
+      return confirm("Вы уверены, что хотите закрыть? Несохраненные изменения будут потеряны.");
+  }
+
+  // Обработка закрытия при клике на оверлей
+  function handleOverlayClick(e) {
+      if (overlay && e.target.classList.contains('modal-overlay')) {
+          if (confirmClose()) {
+              onClose();
+          }
       }
+  }
 
-    }
-  </script>
-  
-  {#if isOpen}
-      <div 
-        class="modal-overlay" 
-        style="--overlay-color: {overlayColor}; --z-index: {zIndex};"
-        on:mousedown={handleOverlayClick}
-      >
-      <div 
-        class="modal-content" 
-        style="
-          --max-width: {maxWidth}; 
-          --max-height: {maxHeight}; 
-          --bg-color: {backgroundColor}; 
-          --border-radius: {borderRadius}; 
-          --padding: {padding};
-          --box-shadow: {boxShadow};
-        "
-        on:click|stopPropagation
-      >
-        <button class="modal-close" on:click={onClose}>✖</button>
-        
-        <slot></slot>
-      </div>
+  // Обработка нажатия на кнопку закрытия
+  function handleCloseClick() {
+      if (confirmClose()) {
+          onClose();
+      }
+  }
+</script>
+
+{#if isOpen}
+  <div 
+    class="modal-overlay" 
+    style="--overlay-color: {overlayColor}; --z-index: {zIndex};"
+    on:click={handleOverlayClick}
+  >
+    <div 
+      class="modal-content" 
+      style="
+        --max-width: {maxWidth}; 
+        --max-height: {maxHeight}; 
+        --bg-color: {backgroundColor}; 
+        --border-radius: {borderRadius}; 
+        --padding: {padding};
+        --box-shadow: {boxShadow};
+      "
+      on:click|stopPropagation
+    >
+      <button class="modal-close" on:click={handleCloseClick}>✖</button>
+      
+      <slot></slot>
     </div>
-  {/if}
+  </div>
+{/if}
   
   <style>
     .modal-overlay {

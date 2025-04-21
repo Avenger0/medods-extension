@@ -14,7 +14,7 @@
   </script>
   
   <div class="existing-schemes" style="--bg-color: {bgColor}; --title-color: {titleColor}; --border-color: {borderColor};">
-    <h2>Существующие схемы лечения</h2>
+    <h2>Существующие схемы лечения для этого приема</h2>
     
     {#if schemes.length}
         <div class="schemes-list">
@@ -27,7 +27,7 @@
             {/each}
         </div>
     {:else}
-      <p class="no-schemes">Нет существующих схем</p>
+      <p class="no-schemes">Нет существующих схем для этого приема</p>
     {/if}
   </div>
   

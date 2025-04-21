@@ -1,6 +1,6 @@
 import IntegratedTreatmentSchemeButton from '../../ui/IntegratedTreatmentSchemeButton.svelte';
 
-const TARGET_SELECTOR = '#show_info_table_title';
+const TARGET_SELECTOR = '.medical-records-protocol-selector .flex';
 const TREATMENT_SCHEME_ID = 'treatment-scheme-container';
 
 // Единый объект конфигурации и состояния
@@ -10,7 +10,6 @@ const state = {
   currentPath: null,
   currentRecordId: null,
   currentPatientId: null,
-  
   debug: true,
   instanceId: Math.random().toString(36).substring(2, 9),
 
@@ -49,22 +48,44 @@ const state = {
   }
 };
 
-/**
- * Извлекает ID записи из URL
- * @param {string} url - URL для анализа
- * @returns {object} - Объект с информацией о странице
- */
 function parseUrl(url) {
   const parsedUrl = new URL(url, window.location.origin);
   const path = parsedUrl.pathname;
   
-  // Регулярное выражение для извлечения ID записи
-  const match = path.match(/\/medical_records\/(\d+)\/(\d+)/);
+  // Проверка на страницу медицинской записи
+  const medRecordMatch = path.match(/\/medical_records\/(\d+)\/(\d+)/);
   
+  // Проверка на страницу entries
+  const entriesMatch = path.match(/\/entries\/(\d+)/);
+  
+  // Если страница записи, возвращаем данные с patientId и recordId
+  if (medRecordMatch) {
+    return {
+      isRecordPage: true,
+      patientId: medRecordMatch[1],
+      recordId: medRecordMatch[2],
+      fullPath: path + parsedUrl.search,
+      params: parsedUrl.searchParams
+    };
+  }
+  
+  // Если страница entries, считаем ее тоже страницей записи, но с другими ID
+  if (entriesMatch) {
+    return {
+      isRecordPage: true,
+      patientId: null, // У entries нет patientId
+      recordId: entriesMatch[1], // ID записи
+      fullPath: path + parsedUrl.search,
+      params: parsedUrl.searchParams,
+      isEntryPage: true // Добавляем флаг, чтобы отличать эти страницы
+    };
+  }
+  
+  // По умолчанию - не страница записи
   return {
-    isRecordPage: !!match,
-    patientId: match ? match[1] : null,
-    recordId: match ? match[2] : null,
+    isRecordPage: false,
+    patientId: null,
+    recordId: null,
     fullPath: path + parsedUrl.search,
     params: parsedUrl.searchParams
   };
@@ -78,9 +99,9 @@ function cleanup() {
   
   // Очищаем интервал
   if (state.intervalId !== null) {
-    clearInterval(state.intervalId);
+    //clearInterval(state.intervalId);
     state.log('unmount', 'Интервал остановлен:', state.intervalId);
-    state.intervalId = null;
+    //state.intervalId = null;
   }
   
   // Удаляем компонент из DOM
@@ -147,7 +168,8 @@ function checkAndMountIfNeeded(force = false) {
           target: treatmentSchemeContainer,
           props: {
             serviceId: urlInfo.recordId,
-            medicalCardId: urlInfo.patientId,
+            medicalCardId: urlInfo.patientId || 'entries', // Для entries передаем специальное значение
+            isEntryPage: urlInfo.isEntryPage || false, // Передаем флаг
             // Передаем настройки стилей
             ...state.styleConfigs.clinic1
           }
