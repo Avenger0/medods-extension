@@ -129,7 +129,8 @@
 <TreatmentModal
     {isOpen}
     onClose={onClose}
-    maxWidth="500px"
+    maxWidth="650px"
+    height="420px"
 >
     <h3>
         {isEditing ? 'Редактирование препарата' : 'Добавление препарата'}

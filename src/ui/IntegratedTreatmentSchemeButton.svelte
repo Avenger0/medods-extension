@@ -393,18 +393,21 @@
             const result = await treatmentService.saveSchematic(newScheme);
             
             if (result && result.success) {
-                // Перезагружаем схемы
-                await loadSchematics();
-                toggleModal();
-            } else {
-                throw new Error(result.message || "Не удалось сохранить схему");
-            }
+                    // Перезагружаем страницу после успешного сохранения
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 500); // Небольшая задержка для улучшения UX
+                } else {
+                    throw new Error(result?.message || "Не удалось сохранить схему");
+                }
             
         } catch (err) {
             console.error('Ошибка публикации схемы:', err);
-            validationError = `Ошибка сохранения: ${err.message}`;
-        } finally {
+            validationError = `Ошибка сохранения: ${err.message || "Пожалуйста, попробуйте позже"}`;
             isLoading = false;
+            
+            // Показываем уведомление об ошибке пользователю
+            alert(`Не удалось сохранить схему лечения. Пожалуйста, попробуйте позже.\n\nТехническая информация: ${err.message}`);
         }
     }
     

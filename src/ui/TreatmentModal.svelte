@@ -3,6 +3,7 @@
   export let onClose;
   export let maxWidth = '1100px';
   export let maxHeight = '80%';
+  export let height = 'auto';
   export let backgroundColor = 'white';
   export let borderRadius = '8px';
   export let padding = '20px';
@@ -50,6 +51,7 @@
         --border-radius: {borderRadius}; 
         --padding: {padding};
         --box-shadow: {boxShadow};
+        height: {height}
       "
       on:click|stopPropagation
     >
