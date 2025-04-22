@@ -6,6 +6,9 @@
     export let schemes = [];
     export let onSelect;
     export let onEdit;
+
+    export let isLoading = false;
+    export let error = null;
     
     // Стилевые пропсы
     export let bgColor = '#f8f9fa';
@@ -16,7 +19,11 @@
   <div class="existing-schemes" style="--bg-color: {bgColor}; --title-color: {titleColor}; --border-color: {borderColor};">
     <h2>Существующие схемы лечения для этого приема</h2>
     
-    {#if schemes.length}
+    {#if isLoading}
+        <div class="loading-indicator">Загрузка схем лечения...</div>
+    {:else if error}
+        <div class="error-message">Ошибка: {error}</div>
+    {:else if schemes.length}
         <div class="schemes-list">
             {#each schemes as scheme (scheme.id)}
             <SchemeItem 
@@ -27,7 +34,7 @@
             {/each}
         </div>
     {:else}
-      <p class="no-schemes">Нет существующих схем для этого приема</p>
+        <p class="no-schemes">Нет существующих схем для этого приема</p>
     {/if}
   </div>
   
@@ -62,5 +69,18 @@
       color: #6c757d;
       text-align: center;
       padding: 15px 0;
+    }
+    .loading-indicator {
+        padding: 15px;
+        text-align: center;
+        color: #6c757d;
+    }
+    
+    .error-message {
+        padding: 10px;
+        color: #dc3545;
+        background-color: #f8d7da;
+        border-radius: 4px;
+        margin-bottom: 15px;
     }
   </style>

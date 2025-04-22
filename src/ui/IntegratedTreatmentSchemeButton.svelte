@@ -102,11 +102,41 @@
     let selectedMedications = [];
     let selectedDays = {};
     
-    // Примеры существующих схем
-    let existingSchemes = [
+    let existingSchemes = [];
+    let isLoadingSchematics = false;
+    let schematicsError = null;
 
-    ];
-    
+
+
+    // Замените существующую логику загрузки схем
+    let isFirstLoad = true;
+
+    // Добавьте проверку на наличие запроса в процессе
+    async function loadSchematics() {
+        if (isLoadingSchematics) return; // Предотвращаем повторный запрос, если загрузка уже идет
+        
+        try {
+            isLoadingSchematics = true;
+            schematicsError = null;
+            console.log(`Загрузка схем для приема ${serviceId}`);
+            
+            const response = await treatmentService.getSchematicsForService(serviceId);
+            
+            if (response && response.schematics && Array.isArray(response.schematics)) {
+                existingSchemes = response.schematics;
+                console.log(`Загружено ${existingSchemes.length} схем`);
+            } else {
+                existingSchemes = [];
+                console.warn('Неверный формат данных:', response);
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки схем:', error);
+            existingSchemes = [];
+        } finally {
+            isLoadingSchematics = false;
+        }
+    }
+        
     // Проверка валидности расписания
     $: isScheduleValid = selectedMedications.length > 0 && 
         selectedMedications.every(medication => 
@@ -117,6 +147,11 @@
     // Функция для открытия/закрытия главного модального окна
     function toggleModal() {
         isModalOpen = !isModalOpen;
+        
+        if (isModalOpen && serviceId) {
+            loadSchematics();
+        }
+        
         if (!isModalOpen) {
             resetState();
         }
@@ -130,8 +165,9 @@
         isCreatingNewScheme = false;
         currentEditingScheme = null;
         validationError = '';
+        isFirstLoad = true; // Сбрасываем флаг при закрытии модального окна
     }
-    
+        
     // Создание пустой формы препарата
     function getEmptyMedicationForm() {
         return {
@@ -274,7 +310,7 @@
     }
     
     // Публикация схемы лечения
-    function publishTreatmentScheme() {
+    async function publishTreatmentScheme() {
         // Проверка валидности расписания
         const medicationsWithoutSchedule = selectedMedications.filter(medication => 
             !selectedDays[medication.id] || 
@@ -303,16 +339,44 @@
             
             // Создание новой схемы или редакции
             const newScheme = {
-                id: Date.now(),
-                name: currentEditingScheme 
-                    ? `${currentEditingScheme.name} (редакция от ${new Date().toLocaleDateString()})` 
-                    : `Схема лечения от ${new Date().toLocaleDateString()}`,
+                id: currentEditingScheme ? Date.now() : Date.now(),
+                name: (() => {
+                    if (!currentEditingScheme) {
+                        // Новая схема
+                        return `Схема лечения от ${new Date().toLocaleDateString()}`;
+                    }
+                    
+                    // Определяем базовое имя схемы (без редакций)
+                    let nameBase = currentEditingScheme.name;
+                    // Образец регулярного выражения для поиска пометки о редакции
+                    const revisionRegex = /\(ред. от [\d\.]+( #\d+)?\)/;
+                    
+                    if (revisionRegex.test(nameBase)) {
+                        // Удаляем пометку о редакции из имени
+                        nameBase = nameBase.replace(revisionRegex, '').trim();
+                    }
+                    
+                    // Определяем номер редакции
+                    let revisionNumber = 1; // По умолчанию первая редакция
+                    
+                    // Если у оригинальной схемы уже есть поле revisionNumber, увеличиваем его
+                    if (currentEditingScheme.revisionNumber) {
+                        revisionNumber = currentEditingScheme.revisionNumber + 1;
+                    } else if (currentEditingScheme.isRevision) {
+                        // Если это редакция, но нет номера, пытаемся извлечь из имени
+                        const match = currentEditingScheme.name.match(/#(\d+)/);
+                        if (match && match[1]) {
+                            revisionNumber = parseInt(match[1], 10) + 1;
+                        }
+                    }
+                    
+                    return `${nameBase} (ред. от ${new Date().toLocaleDateString()} #${revisionNumber})`;
+                })(),
                 medications: selectedMedications.map(med => ({
                     id: med.id,
                     name: med.medication.name,
                     dosage: med.dosage,
                     administrationType: med.administrationType,
-                    // Глубокая копия растворителей
                     diluents: med.diluents ? med.diluents.map(d => ({...d})) : []
                 })),
                 createdFor: {
@@ -325,15 +389,21 @@
                 schedule: formattedSchedule
             };
             
-            // Имитация сохранения (в реальном проекте здесь будет API-вызов)
-            setTimeout(() => {
-                existingSchemes = [...existingSchemes, newScheme];
-                isLoading = false;
+            // Отправляем на сервер
+            const result = await treatmentService.saveSchematic(newScheme);
+            
+            if (result && result.success) {
+                // Перезагружаем схемы
+                await loadSchematics();
                 toggleModal();
-            }, 1000);
+            } else {
+                throw new Error(result.message || "Не удалось сохранить схему");
+            }
             
         } catch (err) {
             console.error('Ошибка публикации схемы:', err);
+            validationError = `Ошибка сохранения: ${err.message}`;
+        } finally {
             isLoading = false;
         }
     }
@@ -382,6 +452,8 @@
                         bgColor={schemesBgColor}
                         titleColor={schemesTitleColor}
                         borderColor={schemesBorderColor}
+                        isLoading={isLoadingSchematics}
+                        error={schematicsError}
                     />
 
                     <!-- Кнопка создания схемы -->

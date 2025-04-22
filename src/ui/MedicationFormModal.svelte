@@ -142,7 +142,6 @@
         <div class="error-message">Ошибка: {loadError}</div>
     {:else}
         <div class="mep-medication-select-container">
-            <label class="select-label">Выберите препарат:</label>
             <Select 
                 items={loadedMedications}
                 placeholder="Найти препарат..."

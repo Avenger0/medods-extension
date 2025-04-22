@@ -56,6 +56,7 @@
 
 <style>
   .scheme-item {
+    display: grid;
     background-color: var(--item-bg-color, #f8f9fa);
     border: 1px solid var(--item-border-color, #e9ecef);
     border-radius: 4px;
@@ -85,6 +86,7 @@
 
   .scheme-actions {
     display: flex;
+    align-items: center;
     gap: 8px;
     margin-top: 10px;
   }
@@ -96,6 +98,7 @@
     border-radius: 4px;
     cursor: pointer;
     transition: opacity 0.2s ease;
+    max-height: 30px;
   }
 
   .btn-use-scheme {
