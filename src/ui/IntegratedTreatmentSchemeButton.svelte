@@ -171,9 +171,8 @@
     // Создание пустой формы препарата
     function getEmptyMedicationForm() {
         return {
-            medication: null,
+            selectedMedications: [], // Всегда возвращаем массив
             administrationType: 'в/м',
-            dosage: '',
             hasDiluent: 'нет',
             diluents: []
         };
@@ -187,20 +186,36 @@
     }
     
     // Редактирование препарата
-    function editMedication(medication) {
-        currentMedicationForm = {
-            medication: medications.find(m => m.name === medication.medication.name) || medications[0],
-            administrationType: medication.administrationType,
-            dosage: medication.dosage,
-            hasDiluent: medication.diluents && medication.diluents.length > 0 ? 'да' : 'нет',
-            // Создаем глубокую копию массива растворителей
-            diluents: medication.diluents ? medication.diluents.map(d => ({...d})) : []
-        };
-        
-        editingMedicationId = medication.id;
-        isMedicationFormOpen = true;
+// Редактирование препарата
+function editMedication(medication) {
+    // Защита от undefined
+    let medsToPut = [];
+    
+    if (medication.selectedMedications && Array.isArray(medication.selectedMedications)) {
+        medsToPut = [...medication.selectedMedications]; // Глубокая копия
+    } else if (medication.medication) {
+        // Если нет selectedMedications, создаем из medication
+        medsToPut = [{
+            id: medication.medication.id || '',
+            name: medication.medication.name || '',
+            fullName: medication.medication.fullName || '',
+            manufacturer: medication.medication.manufacturer || '',
+            dosageForm: medication.medication.dosageForm || '',
+            concentration: medication.medication.concentration || '',
+            dosage: medication.dosage || '' // Используем общую дозировку
+        }];
     }
     
+    currentMedicationForm = {
+        selectedMedications: medsToPut,
+        administrationType: medication.administrationType,
+        hasDiluent: medication.diluents && medication.diluents.length > 0 ? 'да' : 'нет',
+        diluents: medication.diluents ? medication.diluents.map(d => ({...d})) : []
+    };
+    
+    editingMedicationId = medication.id;
+    isMedicationFormOpen = true;
+}
     // Удаление препарата
     function deleteMedication(medicationId) {
         selectedMedications = selectedMedications.filter(med => med.id !== medicationId);
@@ -214,32 +229,74 @@
     }
     
     // Обработка сохранения препарата
-    function handleSaveMedication(formData) {
-        if (editingMedicationId) {
-            // Обновление существующего препарата
-            selectedMedications = selectedMedications.map(med => {
-                if (med.id === editingMedicationId) {
-                    return {
-                        ...formData,
-                        id: med.id
-                    };
-                }
-                return med;
-            });
-            
-            editingMedicationId = null;
-        } else {
-            // Добавление нового препарата
-            const newMedication = { 
-                ...formData,
-                id: Date.now() // уникальный идентификатор
-            };
-            
-            selectedMedications = [...selectedMedications, newMedication];
+    // Исправим функцию handleSaveMedication
+// Обработка сохранения препарата
+function handleSaveMedication(formData) {
+    // Защита от undefined
+    if (!formData || !formData.selectedMedications) {
+        console.error('Отсутствуют данные о выбранных препаратах');
+        return;
+    }
+
+    if (editingMedicationId) {
+        // Обновление существующего препарата
+        selectedMedications = selectedMedications.map(med => {
+            if (med.id === editingMedicationId) {
+                // Проверяем наличие массива selectedMedications
+                const medsArray = formData.selectedMedications || [];
+                
+                // Формируем название препарата с дозировкой
+                const medNameWithDosage = medsArray.length > 0 
+                    ? medsArray.map(m => `${m.name || ''} (${m.dosage || ''})`) 
+                    : 'Неизвестный препарат';
+                
+                return {
+                    ...med,
+                    selectedMedications: medsArray, 
+                    medication: {
+                        name: medNameWithDosage.join(' + ')
+                    },
+                    administrationType: formData.administrationType,
+                    dosage: "", // Общее поле дозировки не используем
+                    hasDiluent: formData.hasDiluent,
+                    diluents: formData.diluents ? [...formData.diluents] : []
+                };
+            }
+            return med;
+        });
+        
+        editingMedicationId = null;
+    } else {
+        // Защита от пустого массива
+        if (formData.selectedMedications.length === 0) {
+            console.warn('Попытка добавить препарат без выбранных медикаментов');
+            return;
         }
         
-        isMedicationFormOpen = false;
+        // Формируем название препарата с дозировкой
+        const medNameWithDosage = formData.selectedMedications.map(m => 
+            `${m.name || ''} (${m.dosage || ''})`
+        );
+        
+        // Добавление нового "коктейля" препаратов
+        const newMedication = {
+            id: Date.now() + Math.random(),
+            selectedMedications: formData.selectedMedications,
+            medication: {
+                id: formData.selectedMedications[0]?.id || Date.now(), 
+                name: medNameWithDosage.join(' + ')
+            },
+            administrationType: formData.administrationType,
+            dosage: "", // Общее поле дозировки не используем
+            hasDiluent: formData.hasDiluent,
+            diluents: formData.diluents ? [...formData.diluents] : []
+        };
+        
+        selectedMedications = [...selectedMedications, newMedication];
     }
+    
+    isMedicationFormOpen = false;
+}
     
     // Переключение дней в расписании
     function toggleDay(medicationId, week, day) {
@@ -490,7 +547,7 @@
                         <!-- Заголовки дней -->
                         <div class="schedule-header">
                             <div class="medication-column">Препарат</div>
-                            {#each [1,2,3,4,5,6,7,8,9,10] as day}
+                            {#each [1,2,3,4,5,6,7,8,9,10,11,12,13,14] as day}
                                 <div class="day-header">{day}</div>
                             {/each}
                         </div>
@@ -519,7 +576,7 @@
                                     </div>
                                     
                                     <!-- Ячейки дней -->
-                                    {#each [1,2,3,4,5,6,7,8,9,10] as day}
+                                    {#each [1,2,3,4,5,6,7,8,9,10,11,12,13,14] as day}
                                         <div 
                                             class="schedule-cell" 
                                             on:click={() => toggleDay(medication.id, 1, day)}
@@ -628,7 +685,7 @@
 
     .schedule-header {
         display: grid;
-        grid-template-columns: 400px repeat(10, 1fr);
+        grid-template-columns: 400px repeat(14, 1fr);
         background-color: #f0f0f0;
         text-align: center;
     }
@@ -641,7 +698,7 @@
 
     .schedule-row {
         display: grid;
-        grid-template-columns: 400px repeat(10, 1fr);
+        grid-template-columns: 400px repeat(14, 1fr);
     }
 
     .medication-cell {

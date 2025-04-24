@@ -6,7 +6,13 @@
 
     export let isOpen = false;
     export let onClose;
-    export let medicationForm;
+    export let medicationForm = {
+        selectedMedications: [], // Инициализируем как пустой массив
+        administrationType: 'в/м',
+        hasDiluent: 'нет',
+        diluents: []
+    };
+
     export let isEditing = false;
     export let onSave;
     
@@ -14,9 +20,25 @@
     let isLoading = false;
     let loadError = null;
     
-    $: selectedValue = medicationForm && medicationForm.medication 
-        ? loadedMedications.find(med => med.id === medicationForm.medication.id) 
-        : null;
+    let selectedValues = [];
+
+    // Обновление selectedValues при изменении medicationForm
+    $: {
+        if (medicationForm && medicationForm.medications && Array.isArray(medicationForm.medications)) {
+            selectedValues = medicationForm.medications.map(med => 
+                loadedMedications.find(m => m.id === med.id || m.name === med.name)
+            ).filter(Boolean);
+        } else if (medicationForm && medicationForm.medication) {
+            // Обратная совместимость со старой структурой
+            const matchedMed = loadedMedications.find(m => 
+                m.id === medicationForm.medication.id || 
+                m.name === medicationForm.medication.name
+            );
+            selectedValues = matchedMed ? [matchedMed] : [];
+        } else {
+            selectedValues = [];
+        }
+    }
 
     // Загружаем лекарства при открытии модального окна
     $: if (isOpen && loadedMedications.length === 0) {
@@ -56,31 +78,51 @@
 
     let selectIsFocused = false;
 
-    // Обработчик изменения выбранного лекарства
+    // Обработчик изменения выбранных лекарств
     function handleMedicationChange(event) {
+        console.log('Select change event:', event);
+        console.log('Select change detail:', event.detail);
         
-        const selectedMed = event.detail;
-        medicationForm.medication = {
-            id: selectedMed.id,
-            name: selectedMed.shortName,
-            fullName: selectedMed.fullName,
-            manufacturer: selectedMed.manufacturer,
-            dosageForm: selectedMed.dosageForm,
-            concentration: selectedMed.concentration
-        };
+        // Обработка в зависимости от типа события
+        if (event.detail === null || (Array.isArray(event.detail) && event.detail.length === 0)) {
+            // Ничего не выбрано - очищаем
+            medicationForm.medications = [];
+            selectedValues = [];
+        } else if (Array.isArray(event.detail)) {
+            // Выбрано несколько элементов
+            medicationForm.medications = event.detail.slice(0, 3).map(med => ({
+                id: med.id,
+                name: med.shortName || med.label,
+                fullName: med.fullName || med.label,
+                manufacturer: med.manufacturer || '',
+                dosageForm: med.dosageForm || '',
+                concentration: med.concentration || ''
+            }));
+            
+            // Обновляем selectedValues для состояния компонента
+            selectedValues = event.detail.slice(0, 3);
+        } else if (event.detail) {
+            // Выбран один элемент
+            const med = event.detail;
+            medicationForm.medications = [{
+                id: med.id,
+                name: med.shortName || med.label,
+                fullName: med.fullName || med.label,
+                manufacturer: med.manufacturer || '',
+                dosageForm: med.dosageForm || '',
+                concentration: med.concentration || ''
+            }];
+            
+            // Обновляем selectedValues для состояния компонента
+            selectedValues = [med];
+        }
 
         selectIsFocused = false;
 
         setTimeout(() => {
-            // Находим все элементы ввода внутри селекта и снимаем с них фокус
             const inputElements = document.querySelectorAll('.mep-medication-select input');
             inputElements.forEach(input => input.blur());
         }, 10);
-        
-        // Если у медикамента только один тип введения, устанавливаем его автоматически
-        if (selectedMed.types && selectedMed.types.length === 1) {
-            medicationForm.administrationType = selectedMed.types[0];
-        }
     }
 
      // Функция для фильтрации медикаментов при поиске
@@ -94,9 +136,10 @@
 
     // Реактивная проверка формы
     $: isFormValid = !!(
-        medicationForm.medication &&
+        medicationForm.selectedMedications && 
+        medicationForm.selectedMedications.length > 0 &&
+        medicationForm.selectedMedications.every(med => med.dosage && med.dosage.trim() !== '') && // Проверка на заполненность дозировок
         medicationForm.administrationType &&
-        medicationForm.dosage &&
         (medicationForm.hasDiluent === 'нет' || 
         (medicationForm.hasDiluent === 'да' && 
         medicationForm.diluents.length > 0 && 
@@ -124,13 +167,77 @@
             onSave(formDataToSave);
         }
     }
+
+    // Обработчик очистки выбора
+// Обработчик очистки выбора
+function handleClear() {
+    // Сбрасываем ввод, но не трогаем уже выбранные препараты
+    setTimeout(() => {
+        const inputElements = document.querySelectorAll('.mep-medication-select input');
+        inputElements.forEach(input => {
+            input.value = '';
+            input.blur();
+        });
+    }, 10);
+}
+
+// Функция для фильтрации доступных препаратов
+// (исключает уже выбранные)
+function getFilteredMedicationOptions() {
+    // Защита от undefined
+    const selectedMeds = medicationForm?.selectedMedications || [];
+    
+    const selectedIds = selectedMeds.map(med => med?.id || '');
+    return loadedMedications.filter(med => !selectedIds.includes(med.id));
+}
+
+// Обработчик выбора одного препарата
+function handleSingleMedicationSelect(event) {
+    if (!event.detail) return;
+    
+    // Если еще не достигнут лимит
+    if (!medicationForm.selectedMedications) {
+        medicationForm.selectedMedications = [];
+    }
+    
+    if (medicationForm.selectedMedications.length < 3) {
+        const med = event.detail;
+        
+        medicationForm.selectedMedications = [
+            ...medicationForm.selectedMedications, 
+            {
+                id: med.id,
+                name: med.shortName || med.label,
+                fullName: med.fullName || med.label,
+                manufacturer: med.manufacturer || '',
+                dosageForm: med.dosageForm || '',
+                concentration: med.concentration || '',
+                dosage: '' // Добавляем поле для дозировки каждого препарата
+            }
+        ];
+    }
+    
+    // Сбрасываем выбор для возможности выбора следующего препарата
+    setTimeout(() => {
+        const inputElements = document.querySelectorAll('.mep-medication-select input');
+        inputElements.forEach(input => {
+            input.value = '';
+            input.blur();
+        });
+    }, 10);
+}
+
+// Удаление препарата
+function removeMedication(index) {
+    medicationForm.selectedMedications = medicationForm.selectedMedications.filter((_, i) => i !== index);
+}
+
 </script>
 
 <TreatmentModal
     {isOpen}
     onClose={onClose}
     maxWidth="650px"
-    height="420px"
 >
     <h3>
         {isEditing ? 'Редактирование препарата' : 'Добавление препарата'}
@@ -143,23 +250,50 @@
         <div class="error-message">Ошибка: {loadError}</div>
     {:else}
         <div class="mep-medication-select-container">
-            <Select 
-                items={loadedMedications}
-                placeholder="Найти препарат..."
-                on:select={handleMedicationChange}
-                isFocused={selectIsFocused}
-                listOpen={false}
-                {filterMedications}
-                isSearchable={true}
-                value={selectedValue}
-                class="mep-medication-select"
-            >
-                <div class="empty" slot="empty">Препараты не найдены..</div>
-            </Select>
-            
-            {#if medicationForm.medication && medicationForm.medication.fullName}
+            <div class="multi-select-container">
+                <div class="selected-medications">
+                    {#if medicationForm.selectedMedications && medicationForm.selectedMedications.length > 0}
+                        {#each medicationForm.selectedMedications as med, i}
+                            <div class="medication-row">
+                                <div class="medication-info">
+                                    <span class="medication-name">{med.name}</span>
+                                </div>
+                                <div class="medication-dosage">
+                                    <input 
+                                        type="text" 
+                                        placeholder="Дозировка препарата"
+                                        bind:value={med.dosage}
+                                        class="form-control-ex dosage-input"
+                                    />
+                                </div>
+                                <button class="medication-remove" on:click={() => removeMedication(i)}>×</button>
+                            </div>
+                        {/each}
+                    {/if}
+                </div>
+                
+                <Select 
+                    items={getFilteredMedicationOptions()}
+                    placeholder={medicationForm.selectedMedications && medicationForm.selectedMedications.length > 0 ? "Добавить еще препарат..." : "Выберите препараты (до 3-х)..."}
+                    on:select={handleSingleMedicationSelect}
+                    on:clear={handleClear}
+                    isFocused={selectIsFocused}
+                    {filterMedications}
+                    isSearchable={true}
+                    value={null}
+                    class="mep-medication-select"
+                >
+                    <div class="empty" slot="empty">Препарат не найден, добавить свой?</div>
+                </Select>
+            </div>
+                
+            {#if medicationForm.medications && medicationForm.medications.length > 0}
                 <div class="selected-medication-info">
-                    Вы назначаете →&nbsp;<span class="full-name">{medicationForm.medication.name}</span>
+                    Вы назначаете →&nbsp;
+                    {#each medicationForm.medications as med, i}
+                        <span class="full-name">{med.name}</span>
+                        {#if i < medicationForm.medications.length - 1}, {/if}
+                    {/each}
                 </div>
             {/if}
         </div>
@@ -197,13 +331,6 @@
             </label>
         {/if}
     </div>
-
-    <input 
-        type="text" 
-        placeholder="Дозировка препарата"
-        bind:value={medicationForm.dosage}
-        class="form-control-ex"
-    />
     
     <div class="diluent-choice">
         <label>Использовать растворитель:</label>
@@ -285,19 +412,6 @@
         </button>
     </div>
 </TreatmentModal>
-
-<!-- Компонент для отображения элемента в списке -->
-<script context="module">
-    function MedicationItem(item) {
-        return `
-            <div class="medication-item">
-                <div class="medication-short-name">${item.shortName}</div>
-                <div class="medication-full-name">${item.fullName}</div>
-                ${item.manufacturer ? `<div class="medication-manufacturer">${item.manufacturer}</div>` : ''}
-            </div>
-        `;
-    }
-</script>
 
 <style>
     h3{
@@ -457,6 +571,108 @@
         padding: 15px;
         text-align: center;
     }
+
+    .multi-select-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.selected-medications {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.medication-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+.medication-info {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.medication-name {
+    font-weight: 500;
+}
+
+.medication-remove {
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 8px;
+}
+
+.medication-remove:hover {
+    color: #f5222d;
+}
+
+.medication-dosage {
+    flex: 1;
+}
+
+.dosage-input {
+    width: 100%;
+}
+
+.medication-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 8px;
+}
+
+.medication-info {
+    flex: 2;
+}
+
+.medication-name {
+    font-weight: 500;
+}
+
+.medication-dosage {
+    flex: 2;
+}
+
+.dosage-input {
+    width: 100%;
+}
+
+.medication-remove {
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.medication-remove:hover {
+    color: #f5222d;
+}
 
     :global(.mep-medication-select) {
         --value-container-padding: 12px 10px; /* Измените на нужные значения */
