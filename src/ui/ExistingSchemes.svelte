@@ -17,7 +17,7 @@
   </script>
   
   <div class="existing-schemes" style="--bg-color: {bgColor}; --title-color: {titleColor}; --border-color: {borderColor};">
-    <h2>Существующие схемы лечения для этого приема</h2>
+    <h2>📋 Существующие схемы лечения для этого приема</h2>
     
     {#if isLoading}
         <div class="loading-indicator">Загрузка схем лечения...</div>
@@ -40,7 +40,6 @@
   
   <style>
     .existing-schemes {
-        margin-top: 20px;
         background-color: var(--bg-color, #f8f9fa);
         border-radius: 6px;
         padding: 15px;
@@ -60,7 +59,7 @@
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         gap: 10px;
-        max-height: 500px;
+        max-height: 750px;
         overflow-y: auto;
         padding-right: 5px;
     }

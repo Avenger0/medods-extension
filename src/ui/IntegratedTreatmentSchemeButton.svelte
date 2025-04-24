@@ -6,6 +6,7 @@
     import CreateSchemeButton from './CreateSchemeButton.svelte';
     import TreatmentModal from './TreatmentModal.svelte';
     import { medicationService, treatmentService } from '../utils/api.js';
+    import { onMount } from 'svelte';
     
     // Пропсы для интеграции
     export let serviceId = null;
@@ -46,12 +47,18 @@
     export let mainButtonTextColor = 'white';
     export let mainButtonBorderRadius = '4px';
     
+    const checkSvg = `<svg width="25" height="25" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M4 12.6111L8.92308 17.5L20 6.5" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
+
     // Состояние интерфейса
     let isModalOpen = false;
     let isCreatingNewScheme = false;
     let isMedicationFormOpen = false;
     let isLoading = false;
     let validationError = '';
+    let tableReady = false;
+
 
     let requireConfirmation = false;
 
@@ -185,37 +192,57 @@
         isMedicationFormOpen = true;
     }
     
-    // Редактирование препарата
-// Редактирование препарата
-function editMedication(medication) {
-    // Защита от undefined
-    let medsToPut = [];
-    
-    if (medication.selectedMedications && Array.isArray(medication.selectedMedications)) {
-        medsToPut = [...medication.selectedMedications]; // Глубокая копия
-    } else if (medication.medication) {
-        // Если нет selectedMedications, создаем из medication
-        medsToPut = [{
-            id: medication.medication.id || '',
-            name: medication.medication.name || '',
-            fullName: medication.medication.fullName || '',
-            manufacturer: medication.medication.manufacturer || '',
-            dosageForm: medication.medication.dosageForm || '',
-            concentration: medication.medication.concentration || '',
-            dosage: medication.dosage || '' // Используем общую дозировку
-        }];
+    function editMedication(medication) {
+        // Защита от undefined
+        let medsToPut = [];
+        
+        if (medication.selectedMedications && Array.isArray(medication.selectedMedications)) {
+            // Создаем глубокую копию с сохранением всех необходимых полей
+            medsToPut = medication.selectedMedications.map(med => ({
+                id: med.id,
+                name: med.name,
+                fullName: med.fullName,
+                dosage: med.dosage,
+                manufacturer: med.manufacturer || '',
+                dosageForm: med.dosageForm || '',
+                concentration: med.concentration || ''
+            }));
+        } else if (medication.medication) {
+            // Если нет selectedMedications, создаем из medication
+            // Возможно это старая схема лечения, попробуем восстановить из названия
+            const nameMatch = medication.medication.name.match(/(.+?)\s*\(([^)]+)\)/);
+            
+            medsToPut = [{
+                id: medication.medication.id || Date.now(),
+                name: nameMatch ? nameMatch[1].trim() : medication.medication.name,
+                fullName: medication.medication.fullName || medication.medication.name,
+                dosage: nameMatch ? nameMatch[2] : (medication.dosage || ''),
+                manufacturer: medication.medication.manufacturer || '',
+                dosageForm: medication.medication.dosageForm || '',
+                concentration: medication.medication.concentration || ''
+            }];
+        }
+        
+         // Проверяем, действительно ли нужны растворители
+        const hasDiluent = medication.diluents && medication.diluents.length > 0 ? 'да' : 'нет';
+        
+        // Готовим список растворителей только если hasDiluent = 'да'
+        const diluentsList = hasDiluent === 'да' 
+            ? (medication.diluents ? medication.diluents.map(d => ({...d})) : [])
+            : [];
+
+        currentMedicationForm = {
+            selectedMedications: medsToPut,
+            administrationType: medication.administrationType,
+            ivMethod: medication.ivMethod || (medication.administrationType === 'в/в' ? 'капельно' : null),
+            hasDiluent: hasDiluent,
+            diluents: diluentsList
+        };
+        
+        editingMedicationId = medication.id;
+        isMedicationFormOpen = true;
     }
-    
-    currentMedicationForm = {
-        selectedMedications: medsToPut,
-        administrationType: medication.administrationType,
-        hasDiluent: medication.diluents && medication.diluents.length > 0 ? 'да' : 'нет',
-        diluents: medication.diluents ? medication.diluents.map(d => ({...d})) : []
-    };
-    
-    editingMedicationId = medication.id;
-    isMedicationFormOpen = true;
-}
+
     // Удаление препарата
     function deleteMedication(medicationId) {
         selectedMedications = selectedMedications.filter(med => med.id !== medicationId);
@@ -226,77 +253,82 @@ function editMedication(medication) {
         }
         
         validationError = '';
+
+        setTimeout(equalizeRowHeights, 100);
     }
     
     // Обработка сохранения препарата
-    // Исправим функцию handleSaveMedication
-// Обработка сохранения препарата
-function handleSaveMedication(formData) {
-    // Защита от undefined
-    if (!formData || !formData.selectedMedications) {
-        console.error('Отсутствуют данные о выбранных препаратах');
-        return;
-    }
-
-    if (editingMedicationId) {
-        // Обновление существующего препарата
-        selectedMedications = selectedMedications.map(med => {
-            if (med.id === editingMedicationId) {
-                // Проверяем наличие массива selectedMedications
-                const medsArray = formData.selectedMedications || [];
-                
-                // Формируем название препарата с дозировкой
-                const medNameWithDosage = medsArray.length > 0 
-                    ? medsArray.map(m => `${m.name || ''} (${m.dosage || ''})`) 
-                    : 'Неизвестный препарат';
-                
-                return {
-                    ...med,
-                    selectedMedications: medsArray, 
-                    medication: {
-                        name: medNameWithDosage.join(' + ')
-                    },
-                    administrationType: formData.administrationType,
-                    dosage: "", // Общее поле дозировки не используем
-                    hasDiluent: formData.hasDiluent,
-                    diluents: formData.diluents ? [...formData.diluents] : []
-                };
-            }
-            return med;
-        });
-        
-        editingMedicationId = null;
-    } else {
-        // Защита от пустого массива
-        if (formData.selectedMedications.length === 0) {
-            console.warn('Попытка добавить препарат без выбранных медикаментов');
+    function handleSaveMedication(formData) {
+        // Защита от undefined
+        if (!formData || !formData.selectedMedications) {
+            console.error('Отсутствуют данные о выбранных препаратах');
             return;
         }
+
+        // Убедимся, что при hasDiluent='нет', массив растворителей пустой
+        const diluentsList = formData.hasDiluent === 'нет' ? [] : (formData.diluents ? [...formData.diluents] : []);
+
+        if (editingMedicationId) {
+            // Обновление существующего препарата
+            selectedMedications = selectedMedications.map(med => {
+                if (med.id === editingMedicationId) {
+                    // Проверяем наличие массива selectedMedications
+                    const medsArray = formData.selectedMedications || [];
+                    
+                    // Формируем название препарата с дозировкой
+                    const medNameWithDosage = medsArray.length > 0 
+                        ? medsArray.map(m => `${m.name || ''} (${m.dosage || ''})`) 
+                        : 'Неизвестный препарат';
+                    
+                    return {
+                        ...med,
+                        selectedMedications: medsArray, 
+                        medication: {
+                            name: medNameWithDosage.join(' + ')
+                        },
+                        administrationType: formData.administrationType,
+                        ivMethod: formData.administrationType === 'в/в' ? formData.ivMethod : null, // Добавляем ivMethod
+                        dosage: "", // Общее поле дозировки не используем
+                        hasDiluent: formData.hasDiluent,
+                        diluents: diluentsList // Используем очищенный список
+                    };
+                }
+                return med;
+            });
+            
+            editingMedicationId = null;
+        } else {
+            // Защита от пустого массива
+            if (formData.selectedMedications.length === 0) {
+                console.warn('Попытка добавить препарат без выбранных медикаментов');
+                return;
+            }
+            
+            // Формируем название препарата с дозировкой
+            const medNameWithDosage = formData.selectedMedications.map(m => 
+                `${m.name || ''} (${m.dosage || ''})`
+            );
+            
+            // Добавление нового "коктейля" препаратов
+            const newMedication = {
+                id: String(Date.now()) + '_' + Math.random().toString(36).substring(2, 9),
+                selectedMedications: formData.selectedMedications,
+                medication: {
+                    id: formData.selectedMedications[0]?.id || Date.now(), 
+                    name: medNameWithDosage.join(' + ')
+                },
+                administrationType: formData.administrationType,
+                ivMethod: formData.administrationType === 'в/в' ? formData.ivMethod : null, // Добавляем ivMethod
+                dosage: "", // Общее поле дозировки не используем
+                hasDiluent: formData.hasDiluent,
+                diluents: diluentsList
+            };
+            
+            selectedMedications = [...selectedMedications, newMedication];
+        }
         
-        // Формируем название препарата с дозировкой
-        const medNameWithDosage = formData.selectedMedications.map(m => 
-            `${m.name || ''} (${m.dosage || ''})`
-        );
-        
-        // Добавление нового "коктейля" препаратов
-        const newMedication = {
-            id: Date.now() + Math.random(),
-            selectedMedications: formData.selectedMedications,
-            medication: {
-                id: formData.selectedMedications[0]?.id || Date.now(), 
-                name: medNameWithDosage.join(' + ')
-            },
-            administrationType: formData.administrationType,
-            dosage: "", // Общее поле дозировки не используем
-            hasDiluent: formData.hasDiluent,
-            diluents: formData.diluents ? [...formData.diluents] : []
-        };
-        
-        selectedMedications = [...selectedMedications, newMedication];
+        isMedicationFormOpen = false;
     }
-    
-    isMedicationFormOpen = false;
-}
     
     // Переключение дней в расписании
     function toggleDay(medicationId, week, day) {
@@ -322,19 +354,38 @@ function handleSaveMedication(formData) {
     function selectExistingScheme(scheme) {
         // Загрузка препаратов схемы
         selectedMedications = scheme.medications.map(med => {
-            const medId = med.id || Date.now() + Math.random();
+            const medId = med.id || String(Date.now()) + '_' + Math.random().toString(36).substring(2, 9);
+
+            
+            // Получаем список препаратов для коктейля
+            let selectedMeds = [];
+            if (med.selectedMedications && Array.isArray(med.selectedMedications)) {
+                selectedMeds = med.selectedMedications.map(subMed => ({...subMed}));
+            } else {
+                // Если список препаратов отсутствует (для обратной совместимости)
+                selectedMeds = [{
+                    id: med.id,
+                    name: med.name.split(' (')[0], // Извлекаем имя без дозировки
+                    fullName: med.fullName || med.name,
+                    dosage: med.dosage || (med.name.match(/\(([^)]+)\)/) ? med.name.match(/\(([^)]+)\)/)[1] : ''),
+                    manufacturer: med.manufacturer || '',
+                    dosageForm: med.dosageForm || '',
+                    concentration: med.concentration || ''
+                }];
+            }
             
             return {
                 id: medId,
                 medication: { name: med.name },
                 administrationType: med.administrationType,
+                ivMethod: med.ivMethod || (med.administrationType === 'в/в' ? 'капельно' : null), // Восстанавливаем ivMethod
                 dosage: med.dosage,
                 hasDiluent: med.diluents && med.diluents.length > 0 ? 'да' : 'нет',
-                // Создаем глубокую копию растворителей
-                diluents: med.diluents ? med.diluents.map(d => ({...d})) : []
+                diluents: med.diluents ? med.diluents.map(d => ({...d})) : [],
+                selectedMedications: selectedMeds
             };
         });
-        
+            
         // Восстанавливаем расписание
         selectedDays = {};
         
@@ -396,7 +447,7 @@ function handleSaveMedication(formData) {
             
             // Создание новой схемы или редакции
             const newScheme = {
-                id: currentEditingScheme ? Date.now() : Date.now(),
+                id: String(Date.now()),
                 name: (() => {
                     if (!currentEditingScheme) {
                         // Новая схема
@@ -434,7 +485,19 @@ function handleSaveMedication(formData) {
                     name: med.medication.name,
                     dosage: med.dosage,
                     administrationType: med.administrationType,
-                    diluents: med.diluents ? med.diluents.map(d => ({...d})) : []
+                    ivMethod: med.ivMethod,
+                    diluents: med.diluents ? med.diluents.map(d => ({...d})) : [],
+                    // Добавляем информацию о всех препаратах в коктейле
+                    selectedMedications: med.selectedMedications ? med.selectedMedications.map(subMed => ({
+                        id: subMed.id,
+                        name: subMed.name,
+                        fullName: subMed.fullName,
+                        dosage: subMed.dosage,
+                        // Добавляем другие нужные поля
+                        manufacturer: subMed.manufacturer || '',
+                        dosageForm: subMed.dosageForm || '',
+                        concentration: subMed.concentration || ''
+                    })) : []
                 })),
                 createdFor: {
                     serviceId,
@@ -477,6 +540,63 @@ function handleSaveMedication(formData) {
     function goBackToSchemes() {
         isCreatingNewScheme = false;
     }
+
+  // Добавляем функцию для выравнивания высоты строк
+  function equalizeRowHeights() {
+    // Сначала скрываем таблицу во время выравнивания
+    tableReady = false;
+    
+    setTimeout(() => {
+        const rows = document.querySelectorAll('.schedule-row');
+        
+        // Сбрасываем высоту строк для корректного расчета
+        rows.forEach(row => {
+            row.style.height = 'auto';
+        });
+        
+        // Находим максимальную высоту
+        let maxHeight = 0;
+        rows.forEach(row => {
+            const height = row.offsetHeight;
+            if (height > maxHeight) {
+                maxHeight = height;
+            }
+        });
+        
+        // Устанавливаем одинаковую высоту для всех строк
+        if (maxHeight > 0) {
+            rows.forEach(row => {
+                row.style.height = `${maxHeight}px`;
+                
+                // Также устанавливаем высоту для ячеек с днями
+                const cells = row.querySelectorAll('.schedule-cell');
+                cells.forEach(cell => {
+                cell.style.height = `${maxHeight}px`;
+                });
+            });
+        }
+        
+        // Отображаем таблицу после выравнивания
+        setTimeout(() => {
+            tableReady = true;
+        }, 50);
+    }, 50); // Небольшая задержка для уверенности, что DOM обновился
+    }
+    
+    // Вызываем функцию при изменении selectedMedications
+    $: if (selectedMedications) {
+        equalizeRowHeights();
+    }
+
+    // Вызываем при изменении расписания
+    $: if (selectedDays) {
+        equalizeRowHeights();
+    }
+    
+    onMount(() => {
+        tableReady = false;
+        equalizeRowHeights();
+    });
 </script>
 
 <div class="treatment-scheme-container">
@@ -501,8 +621,9 @@ function handleSaveMedication(formData) {
         overlayColor={modalOverlayColor}
         confirmBeforeClose={requireConfirmation}
         minHeight="450px"
-        maxHeight="450px"
+        maxHeight="820px"
         height="100%"
+        padding="50px 20px 20px 20px;"
     >
         <div class="modal-grid">
             <!-- Колонка с формой/списком схем -->
@@ -548,55 +669,68 @@ function handleSaveMedication(formData) {
                                 {/if}
                             {/if}
                         </div>
-                        
-                        <div class="schedule-table">
-                            <!-- Заголовки дней -->
-                            <div class="schedule-header">
-                                <div class="medication-column">Препарат</div>
-                                {#each [1,2,3,4,5,6,7,8,9,10,11,12,13,14] as day}
-                                    <div class="day-header">{day}</div>
-                                {/each}
+                        <div class="schedule-table-container">
+                            <div class="table-placeholder" class:hidden={tableReady}>
+                                <div class="loading-spinner"></div>
+                                <span>Формирование таблицы...</span>
                             </div>
-                            
-                            {#if selectedMedications.length > 0}
-                                <!-- Строки с препаратами -->
-                                {#each selectedMedications as medication (medication.id)}
-                                    <div class="schedule-row {!selectedDays[medication.id] || !Object.values(selectedDays[medication.id]).some(daySet => daySet.size > 0) ? 'error-highlight' : ''}">
-                                        <div class="medication-cell">
-                                            <div class="medication-title">
-                                                <strong>{medication.medication.name}</strong> {medication.administrationType}, {medication.dosage}
-                                                {#if medication.hasDiluent === 'да' && medication.diluents && medication.diluents.length > 0}
-                                                    {#each medication.diluents as diluent}
-                                                        {' + '}{diluent.type} ({diluent.dosage}) 
-                                                    {/each}
-                                                {/if}
+                            <div class="schedule-table" class:ready={tableReady}>
+                                <!-- Заголовки дней -->
+                                <div class="schedule-header">
+                                    <div class="medication-column">Препарат</div>
+                                    {#each [1,2,3,4,5,6,7,8,9,10,11,12,13,14] as day}
+                                        <div class="day-header">{day}</div>
+                                    {/each}
+                                </div>
+                                
+                                {#if selectedMedications.length > 0}
+                                    <!-- Строки с препаратами -->
+                                    {#each selectedMedications as medication (medication.id)}
+                                        <div class="schedule-row {!selectedDays[medication.id] || !Object.values(selectedDays[medication.id]).some(daySet => daySet.size > 0) ? 'error-highlight' : ''}">
+                                            <div class="medication-cell">
+                                                <div class="medication-title">
+                                                    <strong>{medication.medication.name}</strong>
+                                                    {#if medication.hasDiluent === 'да' && medication.diluents && medication.diluents.length > 0}
+                                                        {#each medication.diluents as diluent}
+                                                            {' + '}{diluent.type} ({diluent.dosage})
+                                                        {/each}
+                                                    {/if}
+                                                    → {medication.administrationType}
+                                                    {#if medication.administrationType === 'в/в' && medication.ivMethod}
+                                                        ({medication.ivMethod})
+                                                    {/if}
+                                                </div>
+                                                <div class="medication-actions">
+                                                    <button class="btn-edit-medication" on:click={() => editMedication(medication)}>
+                                                        ✏️
+                                                    </button>
+                                                    <button class="btn-delete-medication" on:click={() => deleteMedication(medication.id)}>
+                                                        🗑️
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <div class="medication-actions">
-                                                <button class="btn-edit-medication" on:click={() => editMedication(medication)}>
-                                                    ✏️
-                                                </button>
-                                                <button class="btn-delete-medication" on:click={() => deleteMedication(medication.id)}>
-                                                    🗑️
-                                                </button>
-                                            </div>
-                                        </div>
-                                        
-                                        <!-- Ячейки дней -->
-                                        {#each [1,2,3,4,5,6,7,8,9,10,11,12,13,14] as day}
+                                            
+                                            <!-- Ячейки дней -->
+                                            {#each [1,2,3,4,5,6,7,8,9,10,11,12,13,14] as day}
                                             <div 
                                                 class="schedule-cell" 
                                                 on:click={() => toggleDay(medication.id, 1, day)}
                                                 class:selected={selectedDays[medication.id] && 
                                                                 selectedDays[medication.id][1] && 
                                                                 selectedDays[medication.id][1].has(day)}
-                                            ></div>
+                                            >
+                                                {#if selectedDays[medication.id] && selectedDays[medication.id][1] && selectedDays[medication.id][1].has(day)}
+                                                    {@html checkSvg}
+                                                {/if}
+                                            </div>
                                         {/each}
-                                    </div>
-                                {/each}
-                            {:else}
-                                <p class="empty">Пока назначений нет</p>
-                            {/if}
+                                        </div>
+                                    {/each}
+                                {:else}
+                                    <p class="empty">Пока назначений нет</p>
+                                {/if}
 
+                            </div>
                         </div>
                     </div>
 
@@ -605,7 +739,11 @@ function handleSaveMedication(formData) {
 
                         <button 
                             class="btn-add-medication" 
-                            on:click={openNewMedicationForm}
+                            on:click={(e) => {
+                                openNewMedicationForm();
+                                // Вызываем выравнивание после добавления нового препарата
+                                setTimeout(equalizeRowHeights, 300);
+                            }}
                         >
                             + Добавить препарат
                         </button>
@@ -693,6 +831,34 @@ function handleSaveMedication(formData) {
 
     .schedule-table {
         border: 1px solid #ddd;
+        transition: opacity 0.3s ease, transform 0.3s ease;
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    .schedule-table.ready {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .table-placeholder {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 200px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #f8f9fa;
+        border: 1px solid #ddd;
+        opacity: 1;
+        transition: opacity 0.3s ease;
+    }
+
+    .table-placeholder.hidden {
+        opacity: 0;
+        pointer-events: none;
     }
 
     .schedule-header {
@@ -700,6 +866,9 @@ function handleSaveMedication(formData) {
         grid-template-columns: 400px repeat(14, 1fr);
         background-color: #f0f0f0;
         text-align: center;
+        position: sticky;
+        top: 0;
+        z-index: 2; /* Чтобы заголовок был над содержимым при прокрутке */
     }
 
     .day-header, 
@@ -711,22 +880,30 @@ function handleSaveMedication(formData) {
     .schedule-row {
         display: grid;
         grid-template-columns: 400px repeat(14, 1fr);
+        align-items: stretch; /* Растягивает все ячейки по высоте */
     }
 
     .medication-cell {
         display: flex;
-        gap: 10px;
         align-items: center;
+        gap: 10px;
         justify-content: space-between;
         padding: 10px;
         border-right: 1px solid #ddd;
         background-color: #f8f9fa;
+        overflow-wrap: break-word;
+        word-break: break-word;
+        height: 100%;
     }
 
     .schedule-cell {
         border: 1px solid #ddd;
         cursor: pointer;
         transition: background-color 0.3s;
+        align-self: stretch;
+        display: flex;
+        align-items: center;
+        justify-content: center; /* Центрируем содержимое */
     }
 
     .schedule-cell:hover {
@@ -734,7 +911,12 @@ function handleSaveMedication(formData) {
     }
 
     .schedule-cell.selected {
-        background-color: #007bff;
+        background-color: #3FAECA;
+    }
+
+    .schedule-cell svg {
+        width: 25px;
+        height: 25px;
     }
 
     .error-highlight .medication-cell {
@@ -836,6 +1018,17 @@ function handleSaveMedication(formData) {
 
     .medication-title{
         font-size: 15px;
+    }
+
+    .loading-spinner {
+        display: inline-block;
+        width: 24px;
+        height: 24px;
+        border: 3px solid rgba(0,123,255,0.3);
+        border-radius: 50%;
+        border-top-color: #007bff;
+        animation: spin 1s ease-in-out infinite;
+        margin-right: 12px;
     }
 
     @keyframes spin {

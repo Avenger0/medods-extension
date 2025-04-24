@@ -32,16 +32,22 @@
          
   <div class="scheme-title">
     <strong>{scheme.name}</strong>
-    {#each scheme.medications as med}
-      <div class="medication-details">
-        {med.name}, {med.dosage} ({med.administrationType})
-        {#if med.diluents && med.diluents.length > 0}
-          <span class="diluent-info">
-            {' + '}{med.diluents.map(d => `${d.type} (${d.dosage})`).join(', ')}
-          </span>
-        {/if}
-      </div>
-    {/each}
+    <div class="container-medication-detail">
+      {#each scheme.medications as med}
+        <div class="medication-details">
+          {med.name}
+          {#if med.diluents && med.diluents.length > 0}
+            <span class="diluent-info">
+              {' + '}{med.diluents.map(d => `${d.type} (${d.dosage})`).join(' + ')}
+            </span>
+          {/if}
+          → {med.administrationType}
+          {#if med.administrationType === 'в/в' && med.ivMethod}
+            ({med.ivMethod})
+          {/if}
+        </div>
+      {/each}
+    </div>
   </div>
   
   <div class="scheme-actions">
@@ -57,11 +63,11 @@
 <style>
   .scheme-item {
     display: grid;
+    max-height: 250px;
     background-color: var(--item-bg-color, #f8f9fa);
     border: 1px solid var(--item-border-color, #e9ecef);
     border-radius: 4px;
     padding: 12px;
-    margin-bottom: 10px;
     transition: background-color 0.2s ease, transform 0.1s ease;
   }
 
@@ -78,6 +84,11 @@
   .medication-details {
     color: var(--details-color, #6c757d);
     font-size: 0.9em;
+    padding: 7px 0px;
+  }
+
+  .medication-details:not(:last-child) {
+      border-bottom: 1px solid rgba(0, 0, 0, 0.2);
   }
   
   .diluent-info {
@@ -86,7 +97,7 @@
 
   .scheme-actions {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     gap: 8px;
     margin-top: 10px;
   }
@@ -109,6 +120,12 @@
   .btn-edit-scheme {
     background-color: var(--edit-btn-bg, #6c757d);
     color: var(--edit-btn-text, #fff);
+  }
+
+  .container-medication-detail{
+    max-height: 140px;
+    overflow-y: auto;
+    padding-right: 25px;
   }
 
   .btn-use-scheme:hover, .btn-edit-scheme:hover {

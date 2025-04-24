@@ -9,6 +9,7 @@
     export let medicationForm = {
         selectedMedications: [], // Инициализируем как пустой массив
         administrationType: 'в/м',
+        ivMethod: 'капельно', // Значение по умолчанию для метода в/в
         hasDiluent: 'нет',
         diluents: []
     };
@@ -41,6 +42,26 @@
             selectedValues = matchedMed ? [matchedMed] : [];
         } else {
             selectedValues = [];
+        }
+    }
+
+    $: if (medicationForm.hasDiluent === 'нет' && medicationForm.diluents.length > 0) {
+        medicationForm.diluents = [];
+    }
+
+    $: if (isOpen && medicationForm) {
+        // Установим значение по умолчанию для ivMethod, если его нет, но выбрано в/в
+        if (medicationForm.administrationType === 'в/в' && !medicationForm.ivMethod) {
+            medicationForm.ivMethod = 'капельно';
+        }
+    }
+
+    $: if (medicationForm) {
+        // При изменении типа введения
+        if (medicationForm.administrationType !== 'в/в') {
+            medicationForm.ivMethod = null; // Сбрасываем метод, если это не в/в
+        } else if (!medicationForm.ivMethod) {
+            medicationForm.ivMethod = 'капельно'; // Устанавливаем по умолчанию, если это в/в
         }
     }
 
@@ -82,53 +103,6 @@
 
     let selectIsFocused = false;
 
-    // Обработчик изменения выбранных лекарств
-    function handleMedicationChange(event) {
-        console.log('Select change event:', event);
-        console.log('Select change detail:', event.detail);
-        
-        // Обработка в зависимости от типа события
-        if (event.detail === null || (Array.isArray(event.detail) && event.detail.length === 0)) {
-            // Ничего не выбрано - очищаем
-            medicationForm.medications = [];
-            selectedValues = [];
-        } else if (Array.isArray(event.detail)) {
-            // Выбрано несколько элементов
-            medicationForm.medications = event.detail.slice(0, 3).map(med => ({
-                id: med.id,
-                name: med.shortName || med.label,
-                fullName: med.fullName || med.label,
-                manufacturer: med.manufacturer || '',
-                dosageForm: med.dosageForm || '',
-                concentration: med.concentration || ''
-            }));
-            
-            // Обновляем selectedValues для состояния компонента
-            selectedValues = event.detail.slice(0, 3);
-        } else if (event.detail) {
-            // Выбран один элемент
-            const med = event.detail;
-            medicationForm.medications = [{
-                id: med.id,
-                name: med.shortName || med.label,
-                fullName: med.fullName || med.label,
-                manufacturer: med.manufacturer || '',
-                dosageForm: med.dosageForm || '',
-                concentration: med.concentration || ''
-            }];
-            
-            // Обновляем selectedValues для состояния компонента
-            selectedValues = [med];
-        }
-
-        selectIsFocused = false;
-
-        setTimeout(() => {
-            const inputElements = document.querySelectorAll('.mep-medication-select input');
-            inputElements.forEach(input => input.blur());
-        }, 10);
-    }
-
      // Функция для фильтрации медикаментов при поиске
      function filterMedications(items, searchTerm) {
         if (!searchTerm) return items;
@@ -144,6 +118,7 @@
         medicationForm.selectedMedications.length > 0 &&
         medicationForm.selectedMedications.every(med => med.dosage && med.dosage.trim() !== '') && // Проверка на заполненность дозировок
         medicationForm.administrationType &&
+        (medicationForm.administrationType !== 'в/в' || medicationForm.ivMethod) && // Проверяем, что для в/в указан метод
         (medicationForm.hasDiluent === 'нет' || 
         (medicationForm.hasDiluent === 'да' && 
         medicationForm.diluents.length > 0 && 
@@ -153,7 +128,7 @@
     function addDiluent() {
         medicationForm.diluents = [
             ...medicationForm.diluents,
-            { id: Date.now(), type: 'глюкоза', dosage: '' }
+            { id: String(Date.now()), type: 'физраствор', dosage: '' }
         ];
     }
     
@@ -166,6 +141,7 @@
             // Создаем глубокую копию с растворителями
             const formDataToSave = {
                 ...medicationForm,
+                ivMethod: medicationForm.administrationType === 'в/в' ? medicationForm.ivMethod : null,
                 diluents: medicationForm.diluents.map(d => ({...d}))
             };
             onSave(formDataToSave);
@@ -246,8 +222,8 @@
     onClose={onClose}
     maxWidth="650px"
     minHeight="500px"
-    maxHeight="630px"
-    height="100%"
+    maxHeight="900px"
+    height="auto"
     overlayAlign="right"
     overlayPadding="0 11% 0 0"
 >
@@ -290,7 +266,9 @@
                                     {#each medicationForm.selectedMedications as med, i}
                                         <div class="medication-row">
                                             <div class="medication-info">
-                                                <span class="medication-name"><span class="info" title="{med.fullName}">ℹ️</span> {med.name}</span>
+                                                <span class="medication-name"><span class="info" title="{med.fullName}"><svg fill="#3faeca" width="16" height="16" viewBox="0 0 1920 1920" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M1229.93 594.767c36.644 37.975 50.015 91.328 43.72 142.909-9.128 74.877-30.737 144.983-56.093 215.657-27.129 75.623-54.66 151.09-82.332 226.512-44.263 120.685-88.874 241.237-132.65 362.1-10.877 30.018-18.635 62.072-21.732 93.784-3.376 34.532 21.462 51.526 52.648 36.203 24.977-12.278 49.288-28.992 68.845-48.768 31.952-32.31 63.766-64.776 94.805-97.98 15.515-16.605 30.86-33.397 45.912-50.438 11.993-13.583 24.318-34.02 40.779-42.28 31.17-15.642 55.226 22.846 49.582 49.794-5.39 25.773-23.135 48.383-39.462 68.957l-1.123 1.416a1559.53 1559.53 0 0 0-4.43 5.6c-54.87 69.795-115.043 137.088-183.307 193.977-67.103 55.77-141.607 103.216-223.428 133.98-26.65 10.016-53.957 18.253-81.713 24.563-53.585 12.192-112.798 11.283-167.56 3.333-40.151-5.828-76.246-31.44-93.264-68.707-29.544-64.698-8.98-144.595 6.295-210.45 18.712-80.625 46.8-157.388 75.493-234.619l2.18-5.867 1.092-2.934 2.182-5.87 2.182-5.873c33.254-89.517 67.436-178.676 101.727-267.797 31.294-81.296 62.72-162.537 93.69-243.95 2.364-6.216 5.004-12.389 7.669-18.558l1-2.313c6.835-15.806 13.631-31.617 16.176-48.092 6.109-39.537-22.406-74.738-61.985-51.947-68.42 39.4-119.656 97.992-170.437 156.944l-6.175 7.17c-15.78 18.323-31.582 36.607-47.908 54.286-16.089 17.43-35.243 39.04-62.907 19.07-29.521-21.308-20.765-48.637-3.987-71.785 93.18-128.58 205.056-248.86 350.86-316.783 60.932-28.386 146.113-57.285 225.882-58.233 59.802-.707 116.561 14.29 157.774 56.99Zm92.038-579.94c76.703 29.846 118.04 96.533 118.032 190.417-.008 169.189-182.758 284.908-335.53 212.455-78.956-37.446-117.358-126.202-98.219-227.002 26.494-139.598 183.78-227.203 315.717-175.87Z" fill-rule="evenodd"/>
+                                                  </svg></span> {med.name}</span>
                                             </div>
                                             <div class="medication-dosage">
                                                 <input 
@@ -341,6 +319,29 @@
                         </label>
                     {/if}
                 </div>
+
+                <!-- Добавляем новый блок для выбора метода введения (только для в/в) -->
+                {#if medicationForm.administrationType === 'в/в'}
+                    <div class="iv-method">
+                        <label>Метод введения:</label>
+                        <label>
+                            <input 
+                                type="radio" 
+                                value="капельно"
+                                bind:group={medicationForm.ivMethod}
+                            > 
+                            Капельно
+                        </label>
+                        <label>
+                            <input 
+                                type="radio" 
+                                value="струйно"
+                                bind:group={medicationForm.ivMethod}
+                            > 
+                            Струйно
+                        </label>
+                    </div>
+                {/if}
                 
                 <div class="diluent-choice">
                     <label>Использовать растворитель:</label>
@@ -457,13 +458,23 @@
     }
 
     .administration-type label, 
-    .diluent-choice label {
-        font-size: 14px;
+    .diluent-choice label,
+    .iv-method label{
+        font-size: 18px;
         display: flex;
         align-items: center;
         gap: 5px;
+        cursor: pointer;
     }
     
+    .administration-type label:first-of-type,
+    .diluent-choice label:first-of-type,
+    .iv-method label:first-of-type {
+        font-size: 15px;
+        color: gray;
+        font-style: italic;
+    }
+
     .diluents-container {
         display: flex;
         flex-direction: column;
@@ -604,7 +615,8 @@
     }
 
     .medication-name {
-        font-weight: 500;
+        font-size: 16px;
+        font-weight: normal;
     }
 
     .medication-remove {
@@ -623,10 +635,6 @@
 
     .medication-dosage {
         flex: 1;
-    }
-
-    .dosage-input {
-        width: 100%;
     }
 
     .medication-row {
@@ -650,10 +658,13 @@
 
     .medication-dosage {
         flex: 2;
+        display: flex;
+        justify-content: flex-end;
     }
 
     .dosage-input {
         width: 100%;
+        max-width: 125px;
     }
 
     .medication-remove {
@@ -684,9 +695,25 @@
         font-size: 14px;
     }
 
-    .info{
+    .info {
         cursor: pointer;
         user-select: none;
+        display: inline-flex;
+        align-items: center;
+        margin-right: 4px;
+        vertical-align: middle;
+    }
+
+    .info svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    .iv-method {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 15px;
+        margin-top: 15px;
     }
 
     :global(.mep-medication-select) {
