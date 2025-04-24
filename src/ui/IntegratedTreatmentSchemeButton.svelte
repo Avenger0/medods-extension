@@ -491,6 +491,8 @@ function handleSaveMedication(formData) {
 
     <!-- Основное модальное окно -->
     <TreatmentModal
+        overlayAlign="right"
+        overlayPadding="0 75px 0 0"
         isOpen={isModalOpen}
         onClose={toggleModal}
         maxWidth={modalMaxWidth}
@@ -498,6 +500,9 @@ function handleSaveMedication(formData) {
         borderRadius={modalBorderRadius}
         overlayColor={modalOverlayColor}
         confirmBeforeClose={requireConfirmation}
+        minHeight="450px"
+        maxHeight="450px"
+        height="100%"
     >
         <div class="modal-grid">
             <!-- Колонка с формой/списком схем -->
@@ -515,15 +520,15 @@ function handleSaveMedication(formData) {
                         isLoading={isLoadingSchematics}
                         error={schematicsError}
                     />
-
-                    <!-- Кнопка создания схемы -->
-                    <CreateSchemeButton 
-                        onClick={startNewScheme}
-                        buttonBgColor={createButtonBgColor}
-                        buttonTextColor={createButtonTextColor}
-                        buttonHoverColor={createButtonHoverColor}
-                        buttonBorderRadius={createButtonBorderRadius}
-                    />
+                    <div class="btn-action">
+                        <CreateSchemeButton 
+                            onClick={startNewScheme}
+                            buttonBgColor={createButtonBgColor}
+                            buttonTextColor={createButtonTextColor}
+                            buttonHoverColor={createButtonHoverColor}
+                            buttonBorderRadius={createButtonBorderRadius}
+                        />
+                    </div>
                 </div>
             {/if}
             
@@ -531,69 +536,70 @@ function handleSaveMedication(formData) {
             <!-- График приема препаратов -->
             {#if isCreatingNewScheme}
                 <div class="schedule-column">
-                    <div class="schedule-head">
-                        <h3>Создание новой схемы лечения</h3>
-
-                        {#if selectedMedications.length > 0}
-                            {#if selectedMedications.some(med => !selectedDays[med.id] || !Object.values(selectedDays[med.id]).some(daySet => daySet.size > 0))}
-                                <div class="validation-error">
-                                    ⚠️ Необходимо выбрать дни приема для всех препаратов
-                                </div>
+                    <div class="schedule-top">
+                        <div class="schedule-head">
+                            <h3>Создание новой схемы лечения</h3>
+    
+                            {#if selectedMedications.length > 0}
+                                {#if selectedMedications.some(med => !selectedDays[med.id] || !Object.values(selectedDays[med.id]).some(daySet => daySet.size > 0))}
+                                    <div class="validation-error">
+                                        ⚠️ Необходимо выбрать дни приема для всех препаратов
+                                    </div>
+                                {/if}
                             {/if}
-                        {/if}
-                    </div>
-                    
-                    <div class="schedule-table">
-                        <!-- Заголовки дней -->
-                        <div class="schedule-header">
-                            <div class="medication-column">Препарат</div>
-                            {#each [1,2,3,4,5,6,7,8,9,10,11,12,13,14] as day}
-                                <div class="day-header">{day}</div>
-                            {/each}
                         </div>
                         
-                        {#if selectedMedications.length > 0}
-                            <!-- Строки с препаратами -->
-                            {#each selectedMedications as medication (medication.id)}
-                                <div class="schedule-row {!selectedDays[medication.id] || !Object.values(selectedDays[medication.id]).some(daySet => daySet.size > 0) ? 'error-highlight' : ''}">
-                                    <div class="medication-cell">
-                                        <div class="medication-title">
-                                            <strong>{medication.medication.name}</strong> {medication.administrationType}, {medication.dosage}
-                                            {#if medication.hasDiluent === 'да' && medication.diluents && medication.diluents.length > 0}
-                                                {#each medication.diluents as diluent}
-                                                    {' + '}{diluent.type} ({diluent.dosage}) 
-                                                {/each}
-                                            {/if}
+                        <div class="schedule-table">
+                            <!-- Заголовки дней -->
+                            <div class="schedule-header">
+                                <div class="medication-column">Препарат</div>
+                                {#each [1,2,3,4,5,6,7,8,9,10,11,12,13,14] as day}
+                                    <div class="day-header">{day}</div>
+                                {/each}
+                            </div>
+                            
+                            {#if selectedMedications.length > 0}
+                                <!-- Строки с препаратами -->
+                                {#each selectedMedications as medication (medication.id)}
+                                    <div class="schedule-row {!selectedDays[medication.id] || !Object.values(selectedDays[medication.id]).some(daySet => daySet.size > 0) ? 'error-highlight' : ''}">
+                                        <div class="medication-cell">
+                                            <div class="medication-title">
+                                                <strong>{medication.medication.name}</strong> {medication.administrationType}, {medication.dosage}
+                                                {#if medication.hasDiluent === 'да' && medication.diluents && medication.diluents.length > 0}
+                                                    {#each medication.diluents as diluent}
+                                                        {' + '}{diluent.type} ({diluent.dosage}) 
+                                                    {/each}
+                                                {/if}
+                                            </div>
+                                            <div class="medication-actions">
+                                                <button class="btn-edit-medication" on:click={() => editMedication(medication)}>
+                                                    ✏️
+                                                </button>
+                                                <button class="btn-delete-medication" on:click={() => deleteMedication(medication.id)}>
+                                                    🗑️
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div class="medication-actions">
-                                            <button class="btn-edit-medication" on:click={() => editMedication(medication)}>
-                                                ✏️
-                                            </button>
-                                            <button class="btn-delete-medication" on:click={() => deleteMedication(medication.id)}>
-                                                🗑️
-                                            </button>
-                                        </div>
+                                        
+                                        <!-- Ячейки дней -->
+                                        {#each [1,2,3,4,5,6,7,8,9,10,11,12,13,14] as day}
+                                            <div 
+                                                class="schedule-cell" 
+                                                on:click={() => toggleDay(medication.id, 1, day)}
+                                                class:selected={selectedDays[medication.id] && 
+                                                                selectedDays[medication.id][1] && 
+                                                                selectedDays[medication.id][1].has(day)}
+                                            ></div>
+                                        {/each}
                                     </div>
-                                    
-                                    <!-- Ячейки дней -->
-                                    {#each [1,2,3,4,5,6,7,8,9,10,11,12,13,14] as day}
-                                        <div 
-                                            class="schedule-cell" 
-                                            on:click={() => toggleDay(medication.id, 1, day)}
-                                            class:selected={selectedDays[medication.id] && 
-                                                            selectedDays[medication.id][1] && 
-                                                            selectedDays[medication.id][1].has(day)}
-                                        ></div>
-                                    {/each}
-                                </div>
-                            {/each}
-                        {:else}
-                            <p class="empty">Пока назначений нет</p>
-                        {/if}
+                                {/each}
+                            {:else}
+                                <p class="empty">Пока назначений нет</p>
+                            {/if}
 
+                        </div>
                     </div>
 
-                    <!-- Кнопки действий -->
                     <div class="schedule-actions">
                         <button class="btn-back" on:click={goBackToSchemes}>← Назад</button>
 
@@ -641,6 +647,10 @@ function handleSaveMedication(formData) {
         padding: 0;
     }
 
+    .btn-action{
+        text-align: center;
+    }
+
     .schedule-head{
         display: flex;
         align-items: center;
@@ -670,12 +680,14 @@ function handleSaveMedication(formData) {
     .modal-grid {
         display: grid;
         gap: 20px;
+        height: 100%;
     }
 
     .medication-form-column, 
     .schedule-column {
         display: flex;
         flex-direction: column;
+        justify-content: space-between;
         gap: 10px;
     }
 

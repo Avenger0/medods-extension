@@ -3,6 +3,7 @@
   export let onClose;
   export let maxWidth = '1100px';
   export let maxHeight = '80%';
+  export let minHeight = '80%';
   export let height = 'auto';
   export let backgroundColor = 'white';
   export let borderRadius = '8px';
@@ -11,7 +12,9 @@
   export let zIndex = 1000;
   export let overlay = true;
   export let overlayColor = 'rgba(0,0,0,0.2)';
-  export let confirmBeforeClose = false; // Новый параметр
+  export let overlayPadding = '0px';
+  export let overlayAlign = 'center';
+  export let confirmBeforeClose = false;
 
   // Функция для подтверждения закрытия
   function confirmClose() {
@@ -39,7 +42,12 @@
 {#if isOpen}
   <div 
     class="modal-overlay" 
-    style="--overlay-color: {overlayColor}; --z-index: {zIndex};"
+    style="
+      --overlay-color: {overlayColor};
+      --z-index: {zIndex};
+      --overlay-padding: {overlayPadding};
+      --overlay-align: {overlayAlign};
+    "
     on:click={handleOverlayClick}
   >
     <div 
@@ -47,6 +55,7 @@
       style="
         --max-width: {maxWidth}; 
         --max-height: {maxHeight}; 
+        --min-height: {minHeight}; 
         --bg-color: {backgroundColor}; 
         --border-radius: {borderRadius}; 
         --padding: {padding};
@@ -71,10 +80,11 @@
       height: 100%;
       background: var(--overlay-color, rgba(0,0,0,0.5));
       display: flex;
-      justify-content: center;
+      justify-content: var(--overlay-align, 'center');;
       align-items: center;
       z-index: var(--z-index, 1000);
       overflow-y: auto;
+      padding: var(--overlay-padding, '0px');
     }
   
     .modal-content {
@@ -82,6 +92,7 @@
       border-radius: var(--border-radius, 8px);
       max-width: var(--max-width, 1100px);
       max-height: var(--max-height, 80%);
+      min-height: var(--min-height, 80%);
       width: calc(100% - 40px);
       position: relative;
       padding: var(--padding, 20px);

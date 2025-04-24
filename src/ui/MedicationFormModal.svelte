@@ -22,6 +22,10 @@
     
     let selectedValues = [];
 
+    let selectComponent;
+
+    $: medicationsLimitReached = medicationForm?.selectedMedications?.length >= 3;
+
     // Обновление selectedValues при изменении medicationForm
     $: {
         if (medicationForm && medicationForm.medications && Array.isArray(medicationForm.medications)) {
@@ -169,68 +173,71 @@
     }
 
     // Обработчик очистки выбора
-// Обработчик очистки выбора
-function handleClear() {
-    // Сбрасываем ввод, но не трогаем уже выбранные препараты
-    setTimeout(() => {
-        const inputElements = document.querySelectorAll('.mep-medication-select input');
-        inputElements.forEach(input => {
-            input.value = '';
-            input.blur();
-        });
-    }, 10);
-}
-
-// Функция для фильтрации доступных препаратов
-// (исключает уже выбранные)
-function getFilteredMedicationOptions() {
-    // Защита от undefined
-    const selectedMeds = medicationForm?.selectedMedications || [];
-    
-    const selectedIds = selectedMeds.map(med => med?.id || '');
-    return loadedMedications.filter(med => !selectedIds.includes(med.id));
-}
-
-// Обработчик выбора одного препарата
-function handleSingleMedicationSelect(event) {
-    if (!event.detail) return;
-    
-    // Если еще не достигнут лимит
-    if (!medicationForm.selectedMedications) {
-        medicationForm.selectedMedications = [];
+    function handleClear() {
+        // Сбрасываем ввод, но не трогаем уже выбранные препараты
+        setTimeout(() => {
+            const inputElements = document.querySelectorAll('.mep-medication-select input');
+            inputElements.forEach(input => {
+                input.value = '';
+                input.blur();
+            });
+        }, 10);
     }
-    
-    if (medicationForm.selectedMedications.length < 3) {
-        const med = event.detail;
+
+    // Функция для фильтрации доступных препаратов
+    // (исключает уже выбранные)
+    function getFilteredMedicationOptions() {
+        // Защита от undefined
+        const selectedMeds = medicationForm?.selectedMedications || [];
         
-        medicationForm.selectedMedications = [
-            ...medicationForm.selectedMedications, 
-            {
-                id: med.id,
-                name: med.shortName || med.label,
-                fullName: med.fullName || med.label,
-                manufacturer: med.manufacturer || '',
-                dosageForm: med.dosageForm || '',
-                concentration: med.concentration || '',
-                dosage: '' // Добавляем поле для дозировки каждого препарата
-            }
-        ];
+        const selectedIds = selectedMeds.map(med => med?.id || '');
+        return loadedMedications.filter(med => !selectedIds.includes(med.id));
     }
-    
-    // Сбрасываем выбор для возможности выбора следующего препарата
-    setTimeout(() => {
-        const inputElements = document.querySelectorAll('.mep-medication-select input');
-        inputElements.forEach(input => {
-            input.value = '';
-            input.blur();
-        });
-    }, 10);
-}
 
-// Удаление препарата
-function removeMedication(index) {
-    medicationForm.selectedMedications = medicationForm.selectedMedications.filter((_, i) => i !== index);
-}
+    // Обработчик выбора одного препарата
+    function handleSingleMedicationSelect(event) {
+        if (!event.detail) return;
+        
+        // Если еще не достигнут лимит
+        if (!medicationForm.selectedMedications) {
+            medicationForm.selectedMedications = [];
+        }
+        
+        if (medicationForm.selectedMedications.length < 3) {
+            const med = event.detail;
+            
+            medicationForm.selectedMedications = [
+                ...medicationForm.selectedMedications, 
+                {
+                    id: med.id,
+                    name: med.shortName || med.label,
+                    fullName: med.fullName || med.label,
+                    manufacturer: med.manufacturer || '',
+                    dosageForm: med.dosageForm || '',
+                    concentration: med.concentration || '',
+                    dosage: '' // Добавляем поле для дозировки каждого препарата
+                }
+            ];
+
+            if (selectComponent) {
+                selectComponent.handleClear();
+            }
+        }
+        
+        // Сбрасываем выбор для возможности выбора следующего препарата
+        setTimeout(() => {
+            const inputElements = document.querySelectorAll('.mep-medication-select input');
+            inputElements.forEach(input => {
+                input.value = '';
+                input.blur();
+            });
+        }, 10);
+    }
+
+    // Удаление препарата
+    function removeMedication(index) {
+        medicationForm.selectedMedications = medicationForm.selectedMedications.filter((_, i) => i !== index);
+    }
 
 </script>
 
@@ -238,178 +245,183 @@ function removeMedication(index) {
     {isOpen}
     onClose={onClose}
     maxWidth="650px"
+    minHeight="500px"
+    maxHeight="630px"
+    height="100%"
+    overlayAlign="right"
+    overlayPadding="0 11% 0 0"
 >
-    <h3>
-        {isEditing ? 'Редактирование препарата' : 'Добавление препарата'}
-    </h3>
-    
-        <!-- Форма добавления медикамента -->
-        {#if isLoading}
-        <div class="loading-indicator">Загрузка списка препаратов...</div>
-    {:else if loadError}
-        <div class="error-message">Ошибка: {loadError}</div>
-    {:else}
-        <div class="mep-medication-select-container">
-            <div class="multi-select-container">
-                <div class="selected-medications">
-                    {#if medicationForm.selectedMedications && medicationForm.selectedMedications.length > 0}
-                        {#each medicationForm.selectedMedications as med, i}
-                            <div class="medication-row">
-                                <div class="medication-info">
-                                    <span class="medication-name">{med.name}</span>
+    <div class="modal-grid">
+        <div class="mep-flex">
+            <div class="mep-head">
+                <h3>
+                    {isEditing ? 'Редактирование препарата' : 'Добавление препарата'}
+                </h3>
+                {#if isLoading}
+                    <div class="loading-indicator">Загрузка списка препаратов...</div>
+                {:else if loadError}
+                    <div class="error-message">Ошибка: {loadError}</div>
+                {:else}
+                    <div class="mep-medication-select-container">
+                        <div class="multi-select-container">
+                            {#if medicationsLimitReached}
+                                <div class="medications-limit-warning">
+                                    Нельзя добавить больше 3-х препаратов в один коктейль
                                 </div>
-                                <div class="medication-dosage">
-                                    <input 
-                                        type="text" 
-                                        placeholder="Дозировка препарата"
-                                        bind:value={med.dosage}
-                                        class="form-control-ex dosage-input"
-                                    />
-                                </div>
-                                <button class="medication-remove" on:click={() => removeMedication(i)}>×</button>
+                            {:else}
+                                <Select 
+                                    bind:this={selectComponent}
+                                    items={getFilteredMedicationOptions()}
+                                    placeholder="Добавить препарат..."
+                                    on:select={handleSingleMedicationSelect}
+                                    on:clear={handleClear}
+                                    isFocused={selectIsFocused}
+                                    {filterMedications}
+                                    isSearchable={true}
+                                    value={null}
+                                    class="mep-medication-select"
+                                >
+                                    <div class="empty" slot="empty">Препарат не найден, добавить свой?</div>
+                                </Select>
+                            {/if}
+
+                            <div class="selected-medications">
+                                {#if medicationForm.selectedMedications && medicationForm.selectedMedications.length > 0}
+                                    {#each medicationForm.selectedMedications as med, i}
+                                        <div class="medication-row">
+                                            <div class="medication-info">
+                                                <span class="medication-name"><span class="info" title="{med.fullName}">ℹ️</span> {med.name}</span>
+                                            </div>
+                                            <div class="medication-dosage">
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Дозировка препарата"
+                                                    bind:value={med.dosage}
+                                                    class="form-control-ex dosage-input"
+                                                />
+                                            </div>
+                                            <button class="medication-remove test" on:click={() => removeMedication(i)} tabindex="-1">×</button>
+                                        </div>
+                                    {/each}
+                                {/if}
                             </div>
+                        </div>
+                    </div>
+                {/if}
+
+                <div class="administration-type">
+                    <label>Способ введения:</label>
+                    {#if medicationForm.medication && medicationForm.medication.id}
+                        {#each loadedMedications.find(m => m.id === medicationForm.medication.id)?.types || ['в/м', 'в/в'] as type}
+                            <label>
+                                <input 
+                                    type="radio" 
+                                    value={type}
+                                    bind:group={medicationForm.administrationType}
+                                > 
+                                {type === 'в/м' ? 'Внутримышечно' : type === 'в/в' ? 'Внутривенно' : type}
+                            </label>
                         {/each}
+                    {:else}
+                        <label>
+                            <input 
+                                type="radio" 
+                                value="в/м"
+                                bind:group={medicationForm.administrationType}
+                            > 
+                            Внутримышечно
+                        </label>
+                        <label>
+                            <input 
+                                type="radio" 
+                                value="в/в"
+                                bind:group={medicationForm.administrationType}
+                            > 
+                            Внутривенно
+                        </label>
                     {/if}
                 </div>
                 
-                <Select 
-                    items={getFilteredMedicationOptions()}
-                    placeholder={medicationForm.selectedMedications && medicationForm.selectedMedications.length > 0 ? "Добавить еще препарат..." : "Выберите препараты (до 3-х)..."}
-                    on:select={handleSingleMedicationSelect}
-                    on:clear={handleClear}
-                    isFocused={selectIsFocused}
-                    {filterMedications}
-                    isSearchable={true}
-                    value={null}
-                    class="mep-medication-select"
-                >
-                    <div class="empty" slot="empty">Препарат не найден, добавить свой?</div>
-                </Select>
-            </div>
+                <div class="diluent-choice">
+                    <label>Использовать растворитель:</label>
+                    <label>
+                        <input 
+                            type="radio" 
+                            value="нет"
+                            bind:group={medicationForm.hasDiluent}
+                        > 
+                        Нет
+                    </label>
+                    <label>
+                        <input 
+                            type="radio" 
+                            value="да"
+                            bind:group={medicationForm.hasDiluent}
+                        > 
+                        Да
+                    </label>
+                </div>
                 
-            {#if medicationForm.medications && medicationForm.medications.length > 0}
-                <div class="selected-medication-info">
-                    Вы назначаете →&nbsp;
-                    {#each medicationForm.medications as med, i}
-                        <span class="full-name">{med.name}</span>
-                        {#if i < medicationForm.medications.length - 1}, {/if}
-                    {/each}
-                </div>
-            {/if}
+                <!-- Блок растворителей -->
+                {#if medicationForm.hasDiluent === 'да'}
+                    <div class="diluents-container">
+                        {#each medicationForm.diluents as diluent (diluent.id)}
+                            <div class="diluent-row">
+                                <select 
+                                    bind:value={diluent.type}
+                                    class="form-control-ex diluent-select"
+                                >
+                                    <option value="глюкоза">Глюкоза</option>
+                                    <option value="физраствор">Физраствор</option>
+                                    <option value="вода для инъекций">Вода для инъекций</option>
+                                    <option value="р-р рингер">Раствор Рингера</option>
+                                    <option value="р-р рингер-локка">Раствор Рингера-Локка</option>
+                                    <option value="р-р хартман">Раствор Хартмана</option>
+                                    <option value="этиловый спирт">Этиловый спирт</option>
+                                    <option value="пэг">Полиэтиленгликоль (ПЭГ)</option>
+                                </select>
+                
+                                <input 
+                                    type="text" 
+                                    placeholder="Дозировка"
+                                    bind:value={diluent.dosage}
+                                    class="form-control-ex diluent-dosage"
+                                />
+                                
+                                <button 
+                                    class="btn-remove-diluent"
+                                    on:click={() => removeDiluent(diluent.id)}
+                                >
+                                    ✖
+                                </button>
+                            </div>
+                        {/each}
+                        
+                        <button 
+                            class="btn-add-diluent" 
+                            on:click={addDiluent}
+                        >
+                            + Добавить растворитель
+                        </button>
+                    </div>
+                {/if}
+            </div>
+            <div class="button-row">
+                <button 
+                    class="btn-cancel" 
+                    on:click={onClose}
+                >
+                    Отмена
+                </button>
+                <button 
+                    class="btn-save" 
+                    disabled={!isFormValid}
+                    on:click={handleSave}
+                >
+                    {isEditing ? 'Сохранить изменения' : 'Добавить препарат'}
+                </button>
+            </div>             
         </div>
-    {/if}
-
-    <div class="administration-type">
-        <label>Способ введения:</label>
-        {#if medicationForm.medication && medicationForm.medication.id}
-            {#each loadedMedications.find(m => m.id === medicationForm.medication.id)?.types || ['в/м', 'в/в'] as type}
-                <label>
-                    <input 
-                        type="radio" 
-                        value={type}
-                        bind:group={medicationForm.administrationType}
-                    > 
-                    {type === 'в/м' ? 'Внутримышечно' : type === 'в/в' ? 'Внутривенно' : type}
-                </label>
-            {/each}
-        {:else}
-            <label>
-                <input 
-                    type="radio" 
-                    value="в/м"
-                    bind:group={medicationForm.administrationType}
-                > 
-                Внутримышечно
-            </label>
-            <label>
-                <input 
-                    type="radio" 
-                    value="в/в"
-                    bind:group={medicationForm.administrationType}
-                > 
-                Внутривенно
-            </label>
-        {/if}
-    </div>
-    
-    <div class="diluent-choice">
-        <label>Использовать растворитель:</label>
-        <label>
-            <input 
-                type="radio" 
-                value="нет"
-                bind:group={medicationForm.hasDiluent}
-            > 
-            Нет
-        </label>
-        <label>
-            <input 
-                type="radio" 
-                value="да"
-                bind:group={medicationForm.hasDiluent}
-            > 
-            Да
-        </label>
-    </div>
-    
-    <!-- Блок растворителей -->
-    {#if medicationForm.hasDiluent === 'да'}
-        <div class="diluents-container">
-            {#each medicationForm.diluents as diluent (diluent.id)}
-                <div class="diluent-row">
-                    <select 
-                        bind:value={diluent.type}
-                        class="form-control-ex diluent-select"
-                    >
-                        <option value="глюкоза">Глюкоза</option>
-                        <option value="физраствор">Физраствор</option>
-                        <option value="вода для инъекций">Вода для инъекций</option>
-                        <option value="р-р рингер">Раствор Рингера</option>
-                        <option value="р-р рингер-локка">Раствор Рингера-Локка</option>
-                        <option value="р-р хартман">Раствор Хартмана</option>
-                        <option value="этиловый спирт">Этиловый спирт</option>
-                        <option value="пэг">Полиэтиленгликоль (ПЭГ)</option>
-                    </select>
-    
-                    <input 
-                        type="text" 
-                        placeholder="Дозировка"
-                        bind:value={diluent.dosage}
-                        class="form-control-ex diluent-dosage"
-                    />
-                    
-                    <button 
-                        class="btn-remove-diluent"
-                        on:click={() => removeDiluent(diluent.id)}
-                    >
-                        ✖
-                    </button>
-                </div>
-            {/each}
-            
-            <button 
-                class="btn-add-diluent" 
-                on:click={addDiluent}
-            >
-                + Добавить растворитель
-            </button>
-        </div>
-    {/if}
-
-    <div class="button-row">
-        <button 
-            class="btn-cancel" 
-            on:click={onClose}
-        >
-            Отмена
-        </button>
-        <button 
-            class="btn-save" 
-            disabled={!isFormValid}
-            on:click={handleSave}
-        >
-            {isEditing ? 'Сохранить изменения' : 'Добавить препарат'}
-        </button>
     </div>
 </TreatmentModal>
 
@@ -419,6 +431,13 @@ function removeMedication(index) {
         margin: 0 0 15px 0;
         padding: 0;
     }
+
+    .modal-grid {
+        display: grid;
+        gap: 20px;
+        height: 100%;
+    }
+
     .form-control-ex {
         width: 100%;
         border: 1px solid #ccc;
@@ -497,7 +516,6 @@ function removeMedication(index) {
         display: flex;
         justify-content: flex-end;
         gap: 10px;
-        margin-top: 20px;
     }
     
     .btn-save, .btn-cancel {
@@ -523,19 +541,15 @@ function removeMedication(index) {
         color: #333;
     }
 
-     /* Добавляем новые стили */
-     .mep-medication-select-container {
+    .mep-medication-select-container {
         margin-bottom: 15px;
     }
-    
-    .select-label {
-        display: block;
-        margin-bottom: 5px;
-        font-weight: 500;
-    }
-    
-    .mep-medication-select {
-        width: 100%;
+
+    .mep-flex{
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 10px;
     }
     
     .loading-indicator {
@@ -551,21 +565,7 @@ function removeMedication(index) {
         border-radius: 4px;
         margin-bottom: 15px;
     }
-    
-    .selected-medication-info {
-        margin-top: 5px;
-        padding: 8px;
-        background-color: #f8f9fa;
-        border-radius: 4px;
-        font-size: 14px;
-        display: flex;
-    }
-    
-    .full-name {
-        display: block;
-        font-weight: 700;
-    }
-    
+
     .empty{
         color: gray;
         padding: 15px;
@@ -573,106 +573,121 @@ function removeMedication(index) {
     }
 
     .multi-select-container {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-bottom: 15px;
-}
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 15px;
+    }
 
-.selected-medications {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 15px;
-}
+    .selected-medications {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
 
-.medication-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background-color: #f8f9fa;
-    border: 1px solid #e9ecef;
-    border-radius: 4px;
-    padding: 10px;
-}
+    .medication-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background-color: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+        padding: 10px;
+    }
 
-.medication-info {
-    flex: 1;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
+    .medication-info {
+        flex: 1;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
 
-.medication-name {
-    font-weight: 500;
-}
+    .medication-name {
+        font-weight: 500;
+    }
 
-.medication-remove {
-    background: none;
-    border: none;
-    color: #999;
-    font-size: 18px;
-    cursor: pointer;
-    padding: 0;
-    margin-left: 8px;
-}
+    .medication-remove {
+        background: none;
+        border: none;
+        color: #999;
+        font-size: 18px;
+        cursor: pointer;
+        padding: 0;
+        margin-left: 8px;
+    }
 
-.medication-remove:hover {
-    color: #f5222d;
-}
+    .medication-remove:hover {
+        color: #f5222d;
+    }
 
-.medication-dosage {
-    flex: 1;
-}
+    .medication-dosage {
+        flex: 1;
+    }
 
-.dosage-input {
-    width: 100%;
-}
+    .dosage-input {
+        width: 100%;
+    }
 
-.medication-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background-color: #f8f9fa;
-    border: 1px solid #e9ecef;
-    border-radius: 4px;
-    padding: 10px;
-    margin-bottom: 8px;
-}
+    .medication-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background-color: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+        padding: 10px;
+        margin-bottom: 8px;
+    }
 
-.medication-info {
-    flex: 2;
-}
+    .medication-info {
+        flex: 2;
+    }
 
-.medication-name {
-    font-weight: 500;
-}
+    .medication-name {
+        font-weight: 500;
+    }
 
-.medication-dosage {
-    flex: 2;
-}
+    .medication-dosage {
+        flex: 2;
+    }
 
-.dosage-input {
-    width: 100%;
-}
+    .dosage-input {
+        width: 100%;
+    }
 
-.medication-remove {
-    background: none;
-    border: none;
-    color: #999;
-    font-size: 18px;
-    cursor: pointer;
-    padding: 0;
-    width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
+    .medication-remove {
+        background: none;
+        border: none;
+        color: #999;
+        font-size: 18px;
+        cursor: pointer;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
 
-.medication-remove:hover {
-    color: #f5222d;
-}
+    .medication-remove:hover {
+        color: #f5222d;
+    }
+
+    .medications-limit-warning {
+        background-color: #fff3cd;
+        color: #856404;
+        padding: 10px;
+        border-radius: 4px;
+        border-left: 4px solid #ffc107;
+        margin-bottom: 10px;
+        font-size: 14px;
+    }
+
+    .info{
+        cursor: pointer;
+        user-select: none;
+    }
 
     :global(.mep-medication-select) {
         --value-container-padding: 12px 10px; /* Измените на нужные значения */
