@@ -587,11 +587,6 @@
     $: if (selectedMedications) {
         equalizeRowHeights();
     }
-
-    // Вызываем при изменении расписания
-    $: if (selectedDays) {
-        equalizeRowHeights();
-    }
     
     onMount(() => {
         tableReady = false;
@@ -741,8 +736,6 @@
                             class="btn-add-medication" 
                             on:click={(e) => {
                                 openNewMedicationForm();
-                                // Вызываем выравнивание после добавления нового препарата
-                                setTimeout(equalizeRowHeights, 300);
                             }}
                         >
                             + Добавить препарат
@@ -819,6 +812,7 @@
         display: grid;
         gap: 20px;
         height: 100%;
+        padding: 25px 0 0 0;
     }
 
     .medication-form-column, 

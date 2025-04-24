@@ -273,7 +273,7 @@
                                             <div class="medication-dosage">
                                                 <input 
                                                     type="text" 
-                                                    placeholder="Дозировка препарата"
+                                                    placeholder="Дозировка"
                                                     bind:value={med.dosage}
                                                     class="form-control-ex dosage-input"
                                                 />
@@ -664,7 +664,7 @@
 
     .dosage-input {
         width: 100%;
-        max-width: 125px;
+        max-width: 160px;
     }
 
     .medication-remove {
