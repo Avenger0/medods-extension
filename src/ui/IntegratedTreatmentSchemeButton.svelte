@@ -115,7 +115,8 @@
     
     // Выбранные препараты и расписание
     let selectedMedications = [];
-    let selectedDays = {};
+    let selectedDays = {}; // Теперь будет иметь вложенную структуру: medicationId -> subMedId -> weeks -> days
+
     
     let existingSchemes = [];
     let isLoadingSchematics = false;
@@ -154,10 +155,13 @@
         
     // Проверка валидности расписания
     $: isScheduleValid = selectedMedications.length > 0 && 
-        selectedMedications.every(medication => 
+    selectedMedications.every(medication => 
+        medication.selectedMedications.some(subMed => 
             selectedDays[medication.id] && 
-            Object.values(selectedDays[medication.id]).some(daySet => daySet.size > 0)
-        );
+            selectedDays[medication.id][subMed.id] && 
+            Object.values(selectedDays[medication.id][subMed.id]).some(daySet => daySet.size > 0)
+        )
+    );
     
     // Функция для открытия/закрытия главного модального окна
     async function toggleModal() {
@@ -390,19 +394,24 @@
     }
     
     // Переключение дней в расписании
-    function toggleDay(medicationId, week, day) {
+    // Обновление функции toggleDay
+    function toggleDay(medicationId, subMedId, week, day) {
         if (!selectedDays[medicationId]) {
             selectedDays[medicationId] = {};
         }
         
-        if (!selectedDays[medicationId][week]) {
-            selectedDays[medicationId][week] = new Set();
+        if (!selectedDays[medicationId][subMedId]) {
+            selectedDays[medicationId][subMedId] = {};
+        }
+        
+        if (!selectedDays[medicationId][subMedId][week]) {
+            selectedDays[medicationId][subMedId][week] = new Set();
         }
 
-        if (selectedDays[medicationId][week].has(day)) {
-            selectedDays[medicationId][week].delete(day);
+        if (selectedDays[medicationId][subMedId][week].has(day)) {
+            selectedDays[medicationId][subMedId][week].delete(day);
         } else {
-            selectedDays[medicationId][week].add(day);
+            selectedDays[medicationId][subMedId][week].add(day);
         }
 
         selectedDays = {...selectedDays}; // Триггерим реактивность
@@ -449,12 +458,32 @@
         selectedDays = {};
         
         if (scheme.schedule) {
-            Object.entries(scheme.schedule).forEach(([medId, weeks]) => {
+            Object.entries(scheme.schedule).forEach(([medId, subMeds]) => {
                 selectedDays[medId] = {};
                 
-                Object.entries(weeks).forEach(([week, days]) => {
-                    selectedDays[medId][week] = new Set(days);
-                });
+                // Проверяем старый или новый формат расписания
+                if (subMeds && typeof subMeds === 'object' && !Array.isArray(subMeds)) {
+                    // Новый формат с подпрепаратами
+                    Object.entries(subMeds).forEach(([subMedId, weeks]) => {
+                        selectedDays[medId][subMedId] = {};
+                        
+                        Object.entries(weeks).forEach(([week, days]) => {
+                            selectedDays[medId][subMedId][week] = new Set(days);
+                        });
+                    });
+                } else {
+                    // Старый формат - преобразуем к новому
+                    // Находим первый subMed для этого medId
+                    const medication = selectedMedications.find(m => m.id === medId);
+                    if (medication && medication.selectedMedications && medication.selectedMedications.length > 0) {
+                        const subMedId = medication.selectedMedications[0].id;
+                        selectedDays[medId][subMedId] = {};
+                        
+                        Object.entries(subMeds).forEach(([week, days]) => {
+                            selectedDays[medId][subMedId][week] = new Set(days);
+                        });
+                    }
+                }
             });
         }
         
@@ -478,31 +507,44 @@
     
     // Публикация схемы лечения
     async function publishTreatmentScheme() {
-        // Проверка валидности расписания
-        const medicationsWithoutSchedule = selectedMedications.filter(medication => 
-            !selectedDays[medication.id] || 
-            !Object.values(selectedDays[medication.id]).some(daySet => daySet.size > 0)
+    // Проверка валидности расписания
+    const medicationsWithoutSchedule = [];
+    
+    selectedMedications.forEach(med => {
+        const subMedsWithoutSchedule = med.selectedMedications.filter(subMed => 
+            !selectedDays[med.id] || 
+            !selectedDays[med.id][subMed.id] || 
+            !Object.values(selectedDays[med.id][subMed.id] || {}).some(daySet => daySet.size > 0)
         );
-
-        if (medicationsWithoutSchedule.length > 0) {
-            const medicationNames = medicationsWithoutSchedule.map(med => med.medication.name).join(', ');
-            validationError = `Не выбрано ни одного дня для препаратов: ${medicationNames}`;
-            return;
-        }
         
-        try {
-            isLoading = true;
+        if (subMedsWithoutSchedule.length === med.selectedMedications.length) {
+            medicationsWithoutSchedule.push(med);
+        }
+    });
+
+    if (medicationsWithoutSchedule.length > 0) {
+        const medicationNames = medicationsWithoutSchedule.map(med => med.medication.name).join(', ');
+        validationError = `Не выбрано ни одного дня для препаратов: ${medicationNames}`;
+        return;
+    }
+    
+    try {
+        isLoading = true;
+        
+        // Преобразуем Set обратно в массивы для хранения
+        const formattedSchedule = {};
+        
+        Object.entries(selectedDays).forEach(([medId, subMeds]) => {
+            formattedSchedule[medId] = {};
             
-            // Преобразуем Set обратно в массивы для хранения
-            const formattedSchedule = {};
-            
-            Object.entries(selectedDays).forEach(([medId, weeks]) => {
-                formattedSchedule[medId] = {};
+            Object.entries(subMeds).forEach(([subMedId, weeks]) => {
+                formattedSchedule[medId][subMedId] = {};
                 
                 Object.entries(weeks).forEach(([week, days]) => {
-                    formattedSchedule[medId][week] = Array.from(days);
+                    formattedSchedule[medId][subMedId][week] = Array.from(days);
                 });
             });
+        });
             
             // Создание новой схемы или редакции
             const newScheme = {
@@ -718,7 +760,13 @@
                             <h3>Создание новой схемы лечения</h3>
     
                             {#if selectedMedications.length > 0}
-                                {#if selectedMedications.some(med => !selectedDays[med.id] || !Object.values(selectedDays[med.id]).some(daySet => daySet.size > 0))}
+                                {#if selectedMedications.some(med => 
+                                    !med.selectedMedications.some(subMed => 
+                                        selectedDays[med.id] && 
+                                        selectedDays[med.id][subMed.id] && 
+                                        Object.values(selectedDays[med.id][subMed.id] || {}).some(daySet => daySet.size > 0)
+                                    )
+                                )}
                                     <div class="validation-error">
                                         ⚠️ Необходимо выбрать дни приема для всех препаратов
                                     </div>
@@ -733,54 +781,100 @@
                             <div class="schedule-table" class:ready={tableReady}>
                                 <!-- Заголовки дней -->
                                 <div class="schedule-header">
-                                    <div class="medication-column">Препарат</div>
+                                    <div class="medication-column">Препарат / День</div>
                                     {#each [1,2,3,4,5,6,7,8,9,10,11,12,13,14] as day}
                                         <div class="day-header">{day}</div>
                                     {/each}
                                 </div>
                                 
                                 {#if selectedMedications.length > 0}
-                                    <!-- Строки с препаратами -->
                                     {#each selectedMedications as medication (medication.id)}
-                                        <div class="schedule-row {!selectedDays[medication.id] || !Object.values(selectedDays[medication.id]).some(daySet => daySet.size > 0) ? 'error-highlight' : ''}">
-                                            <div class="medication-cell">
-                                                <div class="medication-title">
-                                                    <strong>{medication.medication.name}</strong>
-                                                    {#if medication.hasDiluent === 'да' && medication.diluents && medication.diluents.length > 0}
-                                                        {#each medication.diluents as diluent}
-                                                            {' + '}{diluent.type} ({diluent.dosage})
-                                                        {/each}
-                                                    {/if}
-                                                    → {medication.administrationType}
-                                                    {#if medication.administrationType === 'в/в' && medication.ivMethod}
-                                                        ({medication.ivMethod})
-                                                    {/if}
+                                        {#each medication.selectedMedications as subMed, subIndex (subMed.id)}
+                                            <div class="schedule-row {!selectedDays[medication.id] || !selectedDays[medication.id][subMed.id] || !Object.values(selectedDays[medication.id][subMed.id] || {}).some(daySet => daySet.size > 0) ? 'error-highlight' : ''}">
+                                                <div class="sub-medication-cell">
+                                                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;" class="sub-medication-info">
+                                                        <div style="display: grid; ">
+                                                            {#if medication.selectedMedications.length === 1}
+                                                                <span class="sub-medication-name">{subMed.name} ({subMed.dosage})</span>
+                                                                <div class="single-med-admin-info">
+                                                                    {#if medication.hasDiluent === 'да' && medication.diluents && medication.diluents.length > 0}
+                                                                        {#each medication.diluents as diluent}
+                                                                            {' + '}{diluent.type} ({diluent.dosage})
+                                                                        {/each}
+                                                                    {/if}
+                                                                    → {medication.administrationType}
+                                                                    {#if medication.administrationType === 'в/в' && medication.ivMethod}
+                                                                        ({medication.ivMethod})
+                                                                    {/if}
+                                                                </div>
+                                                            {:else}
+                                                                <span class="sub-medication-name">• {subMed.name} ({subMed.dosage})</span>
+                                                            {/if}
+                                                        </div>
+
+                                                        <!-- Если это единственный препарат, добавляем информацию о введении здесь -->
+                                                        {#if medication.selectedMedications.length === 1}
+                                                            <div class="medication-actions">
+                                                                <button class="btn-edit-medication" on:click={() => editMedication(medication)}>
+                                                                    ✏️
+                                                                </button>
+                                                                <button class="btn-delete-medication" on:click={() => deleteMedication(medication.id)}>
+                                                                    🗑️
+                                                                </button>
+                                                            </div>
+                                                        {/if}
+                                                    </div>
                                                 </div>
-                                                <div class="medication-actions">
-                                                    <button class="btn-edit-medication" on:click={() => editMedication(medication)}>
-                                                        ✏️
-                                                    </button>
-                                                    <button class="btn-delete-medication" on:click={() => deleteMedication(medication.id)}>
-                                                        🗑️
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            
-                                            <!-- Ячейки дней -->
-                                            {#each [1,2,3,4,5,6,7,8,9,10,11,12,13,14] as day}
-                                            <div 
-                                                class="schedule-cell" 
-                                                on:click={() => toggleDay(medication.id, 1, day)}
-                                                class:selected={selectedDays[medication.id] && 
-                                                                selectedDays[medication.id][1] && 
-                                                                selectedDays[medication.id][1].has(day)}
-                                            >
-                                                {#if selectedDays[medication.id] && selectedDays[medication.id][1] && selectedDays[medication.id][1].has(day)}
-                                                    {@html checkSvg}
-                                                {/if}
+                                                
+                                                <!-- Ячейки дней -->
+                                                {#each [1,2,3,4,5,6,7,8,9,10,11,12,13,14] as day}
+                                                    <div 
+                                                        class="schedule-cell {day > 10 ? 'extended-treatment-day' : ''}" 
+                                                        on:click={() => toggleDay(medication.id, subMed.id, 1, day)}
+                                                        class:selected={selectedDays[medication.id] && 
+                                                                    selectedDays[medication.id][subMed.id] && 
+                                                                    selectedDays[medication.id][subMed.id][1] && 
+                                                                    selectedDays[medication.id][subMed.id][1].has(day)}
+                                                        title={day > 10 ? 'Внимание: продолжительное лечение. Рекомендуется не превышать 10-дневный курс, если нет особых показаний' : ''}
+                                                    >
+                                                        {#if selectedDays[medication.id] && selectedDays[medication.id][subMed.id] && selectedDays[medication.id][subMed.id][1] && selectedDays[medication.id][subMed.id][1].has(day)}
+                                                            {@html checkSvg}
+                                                        {/if}
+                                                    </div>
+                                                {/each}
                                             </div>
                                         {/each}
-                                        </div>
+
+                                        {#if medication.selectedMedications.length > 1}
+                                            <!-- Если это коктейль, добавляем общую информацию после всех препаратов -->
+                                            <div class="schedule-row administration-info-row">
+                                                <div class="administration-cell">
+                                                    <div class="administration-info">
+                                                        {#if medication.hasDiluent === 'да' && medication.diluents && medication.diluents.length > 0}
+                                                            {#each medication.diluents as diluent}
+                                                                {' + '}{diluent.type} ({diluent.dosage})
+                                                            {/each}
+                                                        {/if}
+                                                        → {medication.administrationType}
+                                                        {#if medication.administrationType === 'в/в' && medication.ivMethod}
+                                                            ({medication.ivMethod})
+                                                        {/if}
+                                                    </div>
+                                                    <div class="medication-actions">
+                                                        <button class="btn-edit-medication" on:click={() => editMedication(medication)}>
+                                                            ✏️
+                                                        </button>
+                                                        <button class="btn-delete-medication" on:click={() => deleteMedication(medication.id)}>
+                                                            🗑️
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <!-- Пустые ячейки для дней (чтобы сохранить структуру сетки) -->
+                                                {#each [1,2,3,4,5,6,7,8,9,10,11,12,13,14] as day}
+                                                    <div class="empty-cell"></div>
+                                                {/each}
+                                            </div>
+                                        {/if}
                                     {/each}
                                 {:else}
                                     <p class="empty">Пока назначений нет</p>
@@ -819,8 +913,6 @@
         </div>
     </TreatmentModal>
 
-
-    
     <MedicationFormModal
         serviceId={serviceId}
         isOpen={isMedicationFormOpen}
@@ -939,19 +1031,6 @@
         align-items: stretch; /* Растягивает все ячейки по высоте */
     }
 
-    .medication-cell {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        justify-content: space-between;
-        padding: 10px;
-        border-right: 1px solid #ddd;
-        background-color: #f8f9fa;
-        overflow-wrap: break-word;
-        word-break: break-word;
-        height: 100%;
-    }
-
     .schedule-cell {
         border: 1px solid #ddd;
         cursor: pointer;
@@ -970,14 +1049,22 @@
         background-color: #3FAECA;
     }
 
+    .extended-treatment-day {
+        position: relative;
+        background-color: #e7c7c266;
+    }
+
+    .extended-treatment-day:hover {
+        background-color: rgba(255, 244, 230, 0.7);
+    }
+
+    .extended-treatment-day.selected {
+        background-color: #3FAECA;
+    }
+
     .schedule-cell svg {
         width: 25px;
         height: 25px;
-    }
-
-    .error-highlight .medication-cell {
-        background-color: #fff4f4;
-        border-left: 3px solid #dc3545;
     }
 
     .validation-error {
@@ -991,7 +1078,6 @@
     }
 
     .medication-actions {
-        margin-top: 5px;
         display: flex;
         gap: 5px;
     }
@@ -1072,10 +1158,6 @@
         background-color: #f0f0f0;
     }
 
-    .medication-title{
-        font-size: 15px;
-    }
-
     .loading-spinner {
         display: inline-block;
         width: 24px;
@@ -1085,6 +1167,48 @@
         border-top-color: #007bff;
         animation: spin 1s ease-in-out infinite;
         margin-right: 12px;
+    }
+
+    .sub-medication-cell {
+        display: flex;
+        align-items: center;
+        padding: 5px 10px 5px 25px; /* Отступ слева для визуальной иерархии */
+        border-right: 1px solid #ddd;
+        background-color: rgba(248, 249, 250, 0.7);
+        overflow-wrap: break-word;
+        word-break: break-word;
+        height: 100%;
+    }
+
+    .administration-info-row {
+        background-color: #f5f5f5;
+        border-bottom: 1px solid #ddd;
+        font-style: italic;
+        font-size: 14px;
+    }
+
+    .administration-cell {
+        grid-column: 1;
+        padding: 5px 10px 5px 25px;
+        border-right: 1px solid #ddd;
+        color: #555;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border: none;
+    }
+
+    .empty-cell {
+        border: none;
+        background-color: #f9f9f9;
+    }
+
+    .single-med-admin-info {
+        display: block;
+        font-style: italic;
+        color: #555;
+        margin-top: 4px;
+        font-size: 13px;
     }
 
     @keyframes spin {
