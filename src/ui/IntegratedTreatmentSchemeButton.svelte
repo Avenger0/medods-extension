@@ -10,7 +10,7 @@
 
     let isVersionChecking = true;
     let isVersionOutdated = false;
-    let currentVersion = '2025.04.25';
+    let currentVersion = '2025.04.25.1';
     let latestVersion = null;
     
     import { medicationService, treatmentService } from '../utils/api.js';
