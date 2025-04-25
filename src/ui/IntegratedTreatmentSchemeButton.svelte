@@ -5,6 +5,14 @@
     import MedicationFormModal from './MedicationFormModal.svelte';
     import CreateSchemeButton from './CreateSchemeButton.svelte';
     import TreatmentModal from './TreatmentModal.svelte';
+    import VersionChecker from '../utils/versionCheck.js';
+    import OutdatedVersionOverlay from './OutdatedVersionOverlay.svelte';
+
+    let isVersionChecking = true;
+    let isVersionOutdated = false;
+    let currentVersion = '2025.04.25';
+    let latestVersion = null;
+    
     import { medicationService, treatmentService } from '../utils/api.js';
     import { onMount } from 'svelte';
     
@@ -77,7 +85,7 @@
     async function loadMedications() {
         try {
             isLoadingMedications = true;
-            const response = await medicationService.cachedRequest('getAvailableMedications', {});
+            const response = await medicationService.cachedRequest('getAvailableMedications', {serviceId});
             medications = response.medications.map(med => ({
                 id: med.id,
                 name: med.shortName,
@@ -152,16 +160,45 @@
         );
     
     // Функция для открытия/закрытия главного модального окна
-    function toggleModal() {
-        isModalOpen = !isModalOpen;
-        
-        if (isModalOpen && serviceId) {
-            loadSchematics();
-        }
-        
-        if (!isModalOpen) {
+    async function toggleModal() {
+        // Если модальное окно закрывается, просто закрываем
+        if (isModalOpen) {
+            isModalOpen = false;
             resetState();
+            return;
         }
+        
+        // Проверяем версию перед открытием модального окна
+        if (!isVersionChecking) {
+            // Запускаем проверку версии
+            await checkVersion();
+        }
+        
+        // Если версия актуальна или проверка не выполнена, открываем модальное окно
+        if (!isVersionOutdated) {
+            isModalOpen = true;
+            
+            if (serviceId) {
+                loadSchematics();
+            }
+        } else {
+            // Показываем модальное окно с предупреждением об устаревшей версии
+            showOutdatedVersionModal();
+        }
+    }
+
+    // Функция для показа модального окна с предупреждением
+    function showOutdatedVersionModal() {
+        const modalElement = document.createElement('div');
+        document.body.appendChild(modalElement);
+        
+        new OutdatedVersionOverlay({
+            target: modalElement,
+            props: {
+                currentVersion,
+                latestVersion
+            }
+        });
     }
     
     // Сброс состояния при закрытии
@@ -190,6 +227,28 @@
         currentMedicationForm = getEmptyMedicationForm();
         editingMedicationId = null;
         isMedicationFormOpen = true;
+    }
+
+    // Создаем экземпляр проверки версий
+    const versionChecker = new VersionChecker(currentVersion);
+
+    // Функция для проверки версии
+    async function checkVersion() {
+        isVersionChecking = true;
+        try {
+            const result = await versionChecker.checkVersion();
+            
+            isVersionOutdated = result.isOutdated;
+            latestVersion = result.latestVersion;
+            
+            if (isVersionOutdated) {
+                console.warn(`Используется устаревшая версия расширения: ${currentVersion}. Актуальная версия: ${latestVersion}`);
+            }
+        } catch (error) {
+            console.error('Ошибка при проверке версии:', error);
+        } finally {
+            isVersionChecking = false;
+        }
     }
     
     function editMedication(medication) {
@@ -591,8 +650,10 @@
     onMount(() => {
         tableReady = false;
         equalizeRowHeights();
+        checkVersion();
     });
 </script>
+
 
 <div class="treatment-scheme-container">
     <!-- Главная кнопка -->
@@ -761,6 +822,7 @@
 
     
     <MedicationFormModal
+        serviceId={serviceId}
         isOpen={isMedicationFormOpen}
         onClose={closeMedicationForm}
         medications={medications}

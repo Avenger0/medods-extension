@@ -44,7 +44,7 @@ const state = {
     };
     
     const icon = icons[type] || '📝';
-    console.log(`${icon} [RecordBtn-${this.instanceId}] ${message}`, ...data);
+    //console.log(`${icon} [RecordBtn-${this.instanceId}] ${message}`, ...data);
   }
 };
 

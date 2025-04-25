@@ -53,8 +53,11 @@ const apiClient = new JsonRpcClient('https://api-sberhealth.gorclinica.ru/medods
 
 // Создаем сервисы для разных типов API-запросов
 export const medicationService = {
-    getAvailableMedications: async (searchTerm = '') => {
-        return apiClient.request('getAvailableMedications', { searchTerm });
+    getAvailableMedications: async (serviceId) => {
+        return apiClient.request('getAvailableMedications', { serviceId });
+    },
+    createMedication: async (medicationData) => {
+        return apiClient.request('createMedication', medicationData);
     },
     // Универсальный метод для кэширования результатов запросов
     cachedRequest: (() => {
@@ -91,39 +94,31 @@ export const treatmentService = {
             
             // Если уже есть активный запрос с таким же ключом, возвращаем его Promise
             if (activeRequests[cacheKey]) {
-                console.log(`Используем активный запрос для ${cacheKey}`);
                 return activeRequests[cacheKey];
             }
             
             // Если результат в кэше и не устарел (кэш действителен 1 минуту)
             const cacheTime = 1000; // 1 минута
             if (cache[cacheKey] && (Date.now() - cache[cacheKey].timestamp < cacheTime)) {
-                console.log(`Используем кэшированный результат для ${cacheKey}`);
                 return cache[cacheKey].data;
             }
-            
-            // Создаем новый запрос
-            console.log(`Создаем новый запрос для ${cacheKey}`);
+
             const requestPromise = apiClient.request('getSchematics', { serviceId })
                 .then(result => {
-                    // Кэшируем результат
                     cache[cacheKey] = {
                         data: result,
                         timestamp: Date.now()
                     };
                     
-                    // Удаляем из активных запросов
                     delete activeRequests[cacheKey];
                     
                     return result;
                 })
                 .catch(error => {
-                    // В случае ошибки тоже удаляем из активных запросов
                     delete activeRequests[cacheKey];
                     throw error;
                 });
             
-            // Сохраняем промис в активных запросах
             activeRequests[cacheKey] = requestPromise;
             
             return requestPromise;

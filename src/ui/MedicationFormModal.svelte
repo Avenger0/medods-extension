@@ -3,7 +3,9 @@
     import Select from 'svelte-select';
     import { medicationService } from '../utils/api.js';
     import TreatmentModal from './TreatmentModal.svelte';
+    import AddMedicationModal from './AddMedicationModal.svelte';
 
+    export let serviceId;
     export let isOpen = false;
     export let onClose;
     export let medicationForm = {
@@ -17,6 +19,10 @@
     export let isEditing = false;
     export let onSave;
     
+    let isAddMedicationModalOpen = false;
+
+
+
     let loadedMedications = [];
     let isLoading = false;
     let loadError = null;
@@ -70,12 +76,19 @@
         loadMedications();
     }
     
+    function handleMedicationAdded(newMedication) {
+        // Добавляем новый препарат в список загруженных препаратов
+        loadedMedications = [...loadedMedications, newMedication];
+        // После добавления, можно автоматически выбрать этот препарат
+        handleSingleMedicationSelect({detail: newMedication});
+    }
+
     async function loadMedications() {
         try {
             isLoading = true;
             loadError = null;
             // Запрашиваем данные с сервера
-            const result = await medicationService.getAvailableMedications();
+            const result = await medicationService.getAvailableMedications(serviceId);
             console.log('Загружены препараты:', result);
             
             // Проверяем формат данных
@@ -222,8 +235,8 @@
     onClose={onClose}
     maxWidth="650px"
     minHeight="500px"
-    maxHeight="900px"
-    height="auto"
+    maxHeight="650px"
+    height="100%"
     overlayAlign="right"
     overlayPadding="0 11% 0 0"
 >
@@ -248,7 +261,7 @@
                                 <Select 
                                     bind:this={selectComponent}
                                     items={getFilteredMedicationOptions()}
-                                    placeholder="Добавить препарат..."
+                                    placeholder="Добавить препарат со склада..."
                                     on:select={handleSingleMedicationSelect}
                                     on:clear={handleClear}
                                     isFocused={selectIsFocused}
@@ -257,7 +270,12 @@
                                     value={null}
                                     class="mep-medication-select"
                                 >
-                                    <div class="empty" slot="empty">Препарат не найден, добавить свой?</div>
+                                    <div class="empty" slot="empty">
+                                        Препарат не найден, 
+                                        <a href="#" on:click|preventDefault={() => isAddMedicationModalOpen = true} class="add-link">
+                                            добавить новый препарат?
+                                        </a>
+                                    </div>
                                 </Select>
                             {/if}
 
@@ -424,6 +442,11 @@
             </div>             
         </div>
     </div>
+    <AddMedicationModal 
+        isOpen={isAddMedicationModalOpen}
+        onClose={() => isAddMedicationModalOpen = false}
+        onMedicationAdded={handleMedicationAdded}
+    />
 </TreatmentModal>
 
 <style>
@@ -446,7 +469,7 @@
         font-size: 16px !important;
     }
 
-    .form-control-ex::placeholder {
+    .form-control-ex::placeholder{
         font-size: 16px !important;
     }
 
@@ -716,11 +739,25 @@
         margin-top: 15px;
     }
 
+    .add-link {
+        color: #3FAECA;
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .add-link:hover {
+        text-decoration: underline;
+    }
+
     :global(.mep-medication-select) {
         --value-container-padding: 12px 10px; /* Измените на нужные значения */
     }
 
     :global(.mep-medication-select input) {
+        font-size: 16px !important; 
+    }
+
+    :global(.mep-medication-select input::placeholder) {
         font-size: 16px !important; 
     }
     

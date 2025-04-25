@@ -59,7 +59,7 @@
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         gap: 10px;
-        max-height: 750px;
+        max-height: 450px;
         overflow-y: auto;
         padding-right: 5px;
     }
