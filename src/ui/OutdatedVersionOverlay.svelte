@@ -33,9 +33,6 @@
             <button class="cancel-button" on:click={closeModal}>
                 Закрыть
             </button>
-            <a href="https://gorclinica.ru/medods-extension-update" class="update-button" target="_blank">
-                Получить обновление
-            </a>
         </div>
     </div>
 </div>

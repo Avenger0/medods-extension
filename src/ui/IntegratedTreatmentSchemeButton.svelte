@@ -10,7 +10,7 @@
 
     let isVersionChecking = true;
     let isVersionOutdated = false;
-    let currentVersion = '2025.04.25.1';
+    let currentVersion = '2025.04.26';
     let latestVersion = null;
     
     import { medicationService, treatmentService } from '../utils/api.js';
@@ -156,7 +156,7 @@
     // Проверка валидности расписания
     $: isScheduleValid = selectedMedications.length > 0 && 
     selectedMedications.every(medication => 
-        medication.selectedMedications.some(subMed => 
+        medication.selectedMedications.every(subMed => 
             selectedDays[medication.id] && 
             selectedDays[medication.id][subMed.id] && 
             Object.values(selectedDays[medication.id][subMed.id]).some(daySet => daySet.size > 0)
@@ -759,18 +759,10 @@
                         <div class="schedule-head">
                             <h3>Создание новой схемы лечения</h3>
     
-                            {#if selectedMedications.length > 0}
-                                {#if selectedMedications.some(med => 
-                                    !med.selectedMedications.some(subMed => 
-                                        selectedDays[med.id] && 
-                                        selectedDays[med.id][subMed.id] && 
-                                        Object.values(selectedDays[med.id][subMed.id] || {}).some(daySet => daySet.size > 0)
-                                    )
-                                )}
-                                    <div class="validation-error">
-                                        ⚠️ Необходимо выбрать дни приема для всех препаратов
-                                    </div>
-                                {/if}
+                            {#if selectedMedications.length > 0 && !isScheduleValid}
+                                <div class="validation-error">
+                                    ⚠️ Необходимо выбрать дни приема для всех препаратов
+                                </div>
                             {/if}
                         </div>
                         <div class="schedule-table-container">
@@ -792,7 +784,7 @@
                                         {#each medication.selectedMedications as subMed, subIndex (subMed.id)}
                                             <div class="schedule-row {!selectedDays[medication.id] || !selectedDays[medication.id][subMed.id] || !Object.values(selectedDays[medication.id][subMed.id] || {}).some(daySet => daySet.size > 0) ? 'error-highlight' : ''}">
                                                 <div class="sub-medication-cell">
-                                                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;" class="sub-medication-info">
+                                                    <div class="sub-medication-info">
                                                         <div style="display: grid; ">
                                                             {#if medication.selectedMedications.length === 1}
                                                                 <span class="sub-medication-name">{subMed.name} ({subMed.dosage})</span>
@@ -802,13 +794,13 @@
                                                                             {' + '}{diluent.type} ({diluent.dosage})
                                                                         {/each}
                                                                     {/if}
-                                                                    → {medication.administrationType}
+                                                                    {medication.administrationType}
                                                                     {#if medication.administrationType === 'в/в' && medication.ivMethod}
                                                                         ({medication.ivMethod})
                                                                     {/if}
                                                                 </div>
                                                             {:else}
-                                                                <span class="sub-medication-name">• {subMed.name} ({subMed.dosage})</span>
+                                                                <span class="sub-medication-cocktail-name">• {subMed.name} ({subMed.dosage})</span>
                                                             {/if}
                                                         </div>
 
@@ -855,7 +847,7 @@
                                                                 {' + '}{diluent.type} ({diluent.dosage})
                                                             {/each}
                                                         {/if}
-                                                        → {medication.administrationType}
+                                                        {medication.administrationType}
                                                         {#if medication.administrationType === 'в/в' && medication.ivMethod}
                                                             ({medication.ivMethod})
                                                         {/if}
@@ -930,6 +922,16 @@
         font-size: 21px;
         margin: 0 0 15px 0;
         padding: 0;
+    }
+
+    .sub-medication-name{
+        font-size: 16px;
+    }
+
+    .sub-medication-cocktail-name{
+        font-size: 14px;
+        padding: 0 0 0 0px;
+        font-weight: bold;
     }
 
     .btn-action{
@@ -1189,13 +1191,29 @@
 
     .administration-cell {
         grid-column: 1;
-        padding: 5px 10px 5px 25px;
+        padding: 5px 10px 5px 40px;
         border-right: 1px solid #ddd;
         color: #555;
         display: flex;
         align-items: center;
         gap: 10px;
         border: none;
+        position: relative;
+    }
+
+    .administration-cell .medication-actions{
+        content: "";
+        display: block;
+        width: max-content;
+        height: 20px;
+        position: absolute;
+        top: -7px;
+        left: 0;
+        right: 0;
+        margin: auto;
+        text-align: center;
+        font-size: 12px;
+        opacity: 0.5;
     }
 
     .empty-cell {
@@ -1203,6 +1221,15 @@
         background-color: #f9f9f9;
     }
 
+    .sub-medication-info{
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        width: 100%;
+
+    }
+    
     .single-med-admin-info {
         display: block;
         font-style: italic;
