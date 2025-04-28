@@ -1,12 +1,13 @@
 // src/utils/versionCheck.js
 import { apiClient } from './api.js';
+import { appVersion } from './version.js';
 
 const VERSION_CACHE_KEY = 'medods_extension_version_check';
-const CACHE_DURATION = 10000; // 1 минута в миллисекундах
+const CACHE_DURATION = 10000; // 1 минута
 
 export default class VersionChecker {
-    constructor(currentVersion) {
-        this.currentVersion = currentVersion;
+    constructor() {
+        this.currentVersion = appVersion.toString();
         this.lastCheckTime = 0;
         this.isOutdated = false;
         this.latestVersion = null;

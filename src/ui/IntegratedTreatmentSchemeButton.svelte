@@ -10,10 +10,12 @@
 
     let isVersionChecking = true;
     let isVersionOutdated = false;
-    let currentVersion = '2025.04.26';
+    let currentVersion = appVersion.toString();
     let latestVersion = null;
     
+    
     import { medicationService, treatmentService } from '../utils/api.js';
+    import { appVersion } from '../utils/version.js';
     import { onMount } from 'svelte';
     
     // Пропсы для интеграции
@@ -234,7 +236,7 @@
     }
 
     // Создаем экземпляр проверки версий
-    const versionChecker = new VersionChecker(currentVersion);
+    const versionChecker = new VersionChecker();
 
     // Функция для проверки версии
     async function checkVersion() {

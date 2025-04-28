@@ -1,10 +1,11 @@
 {
   "name": "svelte-extension",
-  "version": "1.0.0",
+  "version": "2025.04.26",
   "type": "module",
   "scripts": {
-    "build:content": "vite build --config vite.content.config.mjs",
-    "watch:content": "vite build --watch --config vite.content.config.mjs"
+    "build": "node scripts/update-version.js && vite build --config vite.config.mjs",
+    "watch": "node scripts/update-version.js && vite build --watch --config vite.config.mjs",
+    "bump-version": "node scripts/bump-version.js"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^2.5.3",
