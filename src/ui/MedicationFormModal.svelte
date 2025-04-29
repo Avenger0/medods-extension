@@ -21,17 +21,14 @@
     
     let isAddMedicationModalOpen = false;
 
-
-
     let loadedMedications = [];
     let isLoading = false;
     let loadError = null;
     
     let selectedValues = [];
-
     let selectComponent;
 
-    $: medicationsLimitReached = medicationForm?.selectedMedications?.length >= 3;
+    $: medicationsLimitReached = medicationForm?.selectedMedications?.length >= 5;
 
     // Обновление selectedValues при изменении medicationForm
     $: {
@@ -192,7 +189,7 @@
             medicationForm.selectedMedications = [];
         }
         
-        if (medicationForm.selectedMedications.length < 3) {
+        if (medicationForm.selectedMedications.length < 5) {
             const med = event.detail;
             
             medicationForm.selectedMedications = [
@@ -255,7 +252,7 @@
                         <div class="multi-select-container">
                             {#if medicationsLimitReached}
                                 <div class="medications-limit-warning">
-                                    Нельзя добавить больше 3-х препаратов в один коктейль
+                                    Нельзя добавить <strong>больше пяти</strong> препаратов в один коктейль 🍹
                                 </div>
                             {:else}
                                 <Select 

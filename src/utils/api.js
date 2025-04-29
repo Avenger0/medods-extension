@@ -187,4 +187,45 @@ export const treatmentService = {
     },
 };
 
+// Добавляем новый сервис для процедур
+export const procedureService = {
+    /**
+     * Получить список доступных типов процедур
+     * @returns {Promise<Object>} - Список типов процедур
+     */
+    getAvailableProcedureTypes: async () => {
+        return apiClient.cachedRequest("getAvailableProcedureTypes", {}, {
+            ttl: apiConfig.cache.defaultTTL
+        });
+    },
+
+    /**
+     * Получить настройки процедуры определенного типа
+     * @param {string} procedureType - Тип процедуры
+     * @returns {Promise<Object>} - Настройки процедуры
+     */
+    getProcedureSettings: async (procedureType) => {
+        return apiClient.cachedRequest("getProcedureSettings", { 
+            procedureType 
+        }, {
+            ttl: apiConfig.cache.defaultTTL
+        });
+    },
+
+    /**
+     * Универсальный метод для кэширования запросов процедур
+     * @param {string} method - Метод API
+     * @param {Object} params - Параметры
+     * @param {number} ttl - Время жизни кэша в мс
+     * @returns {Promise<any>} - Результат запроса
+     */
+    cachedRequest: async (
+        method,
+        params = {},
+        ttl = apiConfig.cache.defaultTTL
+    ) => {
+        return apiClient.cachedRequest(method, params, { ttl });
+    },
+};
+
 export { apiClient };

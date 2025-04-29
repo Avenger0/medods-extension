@@ -8,13 +8,17 @@
     import VersionChecker from '../utils/versionCheck.js';
     import OutdatedVersionOverlay from './OutdatedVersionOverlay.svelte';
 
+    import ProcedureFormModal from './ProcedureFormModal.svelte';
+    import ProcedureItem from './ProcedureItem.svelte';
+    import CreateProcedureButton from './CreateProcedureButton.svelte';
+
     let isVersionChecking = true;
     let isVersionOutdated = false;
     let currentVersion = appVersion.toString();
     let latestVersion = null;
     
     
-    import { medicationService, treatmentService } from '../utils/api.js';
+    import { medicationService, treatmentService, procedureService} from '../utils/api.js';
     import { appVersion } from '../utils/version.js';
     import { onMount } from 'svelte';
     
@@ -65,6 +69,7 @@
     let isModalOpen = false;
     let isCreatingNewScheme = false;
     let isMedicationFormOpen = false;
+    let isProcedureFormOpen = false;
     let isLoading = false;
     let validationError = '';
     let tableReady = false;
@@ -114,7 +119,10 @@
     // ID редактируемого препарата
     let editingMedicationId = null;
     let currentEditingScheme = null;
-    
+
+    // Массив для хранения выбранных процедур
+    let selectedProcedures = [];
+
     // Выбранные препараты и расписание
     let selectedMedications = [];
     let selectedDays = {}; // Теперь будет иметь вложенную структуру: medicationId -> subMedId -> weeks -> days
@@ -156,14 +164,24 @@
     }
         
     // Проверка валидности расписания
-    $: isScheduleValid = selectedMedications.length > 0 && 
-    selectedMedications.every(medication => 
-        medication.selectedMedications.every(subMed => 
-            selectedDays[medication.id] && 
-            selectedDays[medication.id][subMed.id] && 
-            Object.values(selectedDays[medication.id][subMed.id]).some(daySet => daySet.size > 0)
-        )
-    );
+    $: isScheduleValid = 
+        (selectedMedications.length > 0 ? 
+            selectedMedications.every(medication => 
+                medication.selectedMedications.every(subMed => 
+                    selectedDays[medication.id] && 
+                    selectedDays[medication.id][subMed.id] && 
+                    Object.values(selectedDays[medication.id][subMed.id]).some(daySet => daySet.size > 0)
+                )
+            ) : true
+        ) && 
+        (selectedProcedures.length > 0 ? 
+            selectedProcedures.every(proc => 
+                selectedDays['procedure_' + proc.id] && 
+                Object.values(selectedDays['procedure_' + proc.id]).some(daySet => daySet.size > 0)
+            ) : true
+        ) &&
+        // Хотя бы что-то должно быть добавлено
+        (selectedMedications.length > 0 || selectedProcedures.length > 0);
     
     // Функция для открытия/закрытия главного модального окна
     async function toggleModal() {
@@ -211,6 +229,7 @@
     function resetState() {
         currentMedicationForm = getEmptyMedicationForm();
         selectedMedications = [];
+        selectedProcedures = []; // Сбрасываем процедуры
         selectedDays = {};
         isCreatingNewScheme = false;
         currentEditingScheme = null;
@@ -394,6 +413,77 @@
         
         isMedicationFormOpen = false;
     }
+
+    // Обработчики для процедур
+    function openProcedureForm() {
+        isProcedureFormOpen = true;
+    }
+    
+    function closeProcedureForm() {
+        isProcedureFormOpen = false;
+    }
+    
+    function handleSaveProcedure(procedureData) {
+        selectedProcedures = [...selectedProcedures, procedureData];
+        
+        // Создаем пустое расписание для процедуры
+        if (!selectedDays['procedure_' + procedureData.id]) {
+            selectedDays['procedure_' + procedureData.id] = {
+                1: new Set() // Для первой недели
+            };
+        }
+        
+        isProcedureFormOpen = false;
+        setTimeout(equalizeRowHeights, 100);
+    }
+    
+    function deleteProcedure(procedureId) {
+        selectedProcedures = selectedProcedures.filter(proc => proc.id !== procedureId);
+        
+        // Удаляем расписание для процедуры
+        const key = 'procedure_' + procedureId;
+        if (selectedDays[key]) {
+            delete selectedDays[key];
+            selectedDays = {...selectedDays}; // Триггерим реактивность
+        }
+        
+        validationError = '';
+        setTimeout(equalizeRowHeights, 100);
+    }
+    
+    // Проверка выбранного дня для процедуры
+    function isProcedureDaySelected(procedureId, day) {
+        const key = 'procedure_' + procedureId;
+        return selectedDays[key] && 
+               selectedDays[key][1] && 
+               selectedDays[key][1].has(day);
+    }
+    
+    // Переключение дня для процедуры
+    function toggleProcedureDay(procedureId, day) {
+        const key = 'procedure_' + procedureId;
+        
+        if (!selectedDays[key]) {
+            selectedDays[key] = {};
+        }
+        
+        if (!selectedDays[key][1]) {
+            selectedDays[key][1] = new Set();
+        }
+        
+        if (selectedDays[key][1].has(day)) {
+            selectedDays[key][1].delete(day);
+        } else {
+            selectedDays[key][1].add(day);
+        }
+        
+        // Важно: создаем новую ссылку на объект для триггера реактивности
+        selectedDays = {...selectedDays};
+        validationError = '';
+        
+        // После изменения расписания синхронизируем высоту строк
+        //setTimeout(equalizeRowHeights, 50);
+    }
     
     // Переключение дней в расписании
     // Обновление функции toggleDay
@@ -455,35 +545,60 @@
                 selectedMedications: selectedMeds
             };
         });
-            
+        
+        if (scheme.procedures && Array.isArray(scheme.procedures)) {
+            selectedProcedures = scheme.procedures.map(proc => ({
+                id: proc.id || ('procedure_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9)),
+                type: proc.type,
+                name: proc.name,
+                time: proc.time,
+                isTimeOnly: proc.isTimeOnly === undefined ? (proc.type !== 'electrophoresis') : proc.isTimeOnly,
+                settings: proc.settings ? {...proc.settings} : null
+            }));
+        } else {
+            // Если схема не содержит процедур, создаем пустой массив
+            selectedProcedures = [];
+        }
+
         // Восстанавливаем расписание
         selectedDays = {};
         
         if (scheme.schedule) {
-            Object.entries(scheme.schedule).forEach(([medId, subMeds]) => {
-                selectedDays[medId] = {};
-                
-                // Проверяем старый или новый формат расписания
-                if (subMeds && typeof subMeds === 'object' && !Array.isArray(subMeds)) {
-                    // Новый формат с подпрепаратами
-                    Object.entries(subMeds).forEach(([subMedId, weeks]) => {
-                        selectedDays[medId][subMedId] = {};
-                        
-                        Object.entries(weeks).forEach(([week, days]) => {
-                            selectedDays[medId][subMedId][week] = new Set(days);
-                        });
+            Object.entries(scheme.schedule).forEach(([id, value]) => {
+                // Проверяем, это процедура или лекарство
+                if (id.startsWith('procedure_')) {
+                    // Для процедур
+                    selectedDays[id] = {};
+                    
+                    Object.entries(value).forEach(([week, days]) => {
+                        selectedDays[id][week] = new Set(days);
                     });
                 } else {
-                    // Старый формат - преобразуем к новому
-                    // Находим первый subMed для этого medId
-                    const medication = selectedMedications.find(m => m.id === medId);
-                    if (medication && medication.selectedMedications && medication.selectedMedications.length > 0) {
-                        const subMedId = medication.selectedMedications[0].id;
-                        selectedDays[medId][subMedId] = {};
-                        
-                        Object.entries(subMeds).forEach(([week, days]) => {
-                            selectedDays[medId][subMedId][week] = new Set(days);
+                    // Для лекарств (старая логика)
+                    selectedDays[id] = {};
+                    
+                    // Проверяем старый или новый формат расписания
+                    if (value && typeof value === 'object' && !Array.isArray(value)) {
+                        // Новый формат с подпрепаратами
+                        Object.entries(value).forEach(([subMedId, weeks]) => {
+                            selectedDays[id][subMedId] = {};
+                            
+                            Object.entries(weeks).forEach(([week, days]) => {
+                                selectedDays[id][subMedId][week] = new Set(days);
+                            });
                         });
+                    } else {
+                        // Старый формат - преобразуем к новому
+                        // Находим первый subMed для этого medId
+                        const medication = selectedMedications.find(m => m.id === id);
+                        if (medication && medication.selectedMedications && medication.selectedMedications.length > 0) {
+                            const subMedId = medication.selectedMedications[0].id;
+                            selectedDays[id][subMedId] = {};
+                            
+                            Object.entries(value).forEach(([week, days]) => {
+                                selectedDays[id][subMedId][week] = new Set(days);
+                            });
+                        }
                     }
                 }
             });
@@ -509,45 +624,83 @@
     
     // Публикация схемы лечения
     async function publishTreatmentScheme() {
-    // Проверка валидности расписания
-    const medicationsWithoutSchedule = [];
-    
-    selectedMedications.forEach(med => {
-        const subMedsWithoutSchedule = med.selectedMedications.filter(subMed => 
-            !selectedDays[med.id] || 
-            !selectedDays[med.id][subMed.id] || 
-            !Object.values(selectedDays[med.id][subMed.id] || {}).some(daySet => daySet.size > 0)
-        );
+        // Проверка валидности расписания для медикаментов и процедур
+        const medicationsWithoutSchedule = [];
+        const proceduresWithoutSchedule = [];
         
-        if (subMedsWithoutSchedule.length === med.selectedMedications.length) {
-            medicationsWithoutSchedule.push(med);
-        }
-    });
-
-    if (medicationsWithoutSchedule.length > 0) {
-        const medicationNames = medicationsWithoutSchedule.map(med => med.medication.name).join(', ');
-        validationError = `Не выбрано ни одного дня для препаратов: ${medicationNames}`;
-        return;
-    }
-    
-    try {
-        isLoading = true;
-        
-        // Преобразуем Set обратно в массивы для хранения
-        const formattedSchedule = {};
-        
-        Object.entries(selectedDays).forEach(([medId, subMeds]) => {
-            formattedSchedule[medId] = {};
+        selectedMedications.forEach(med => {
+            const subMedsWithoutSchedule = med.selectedMedications.filter(subMed => 
+                !selectedDays[med.id] || 
+                !selectedDays[med.id][subMed.id] || 
+                !Object.values(selectedDays[med.id][subMed.id] || {}).some(daySet => daySet.size > 0)
+            );
             
-            Object.entries(subMeds).forEach(([subMedId, weeks]) => {
-                formattedSchedule[medId][subMedId] = {};
-                
-                Object.entries(weeks).forEach(([week, days]) => {
-                    formattedSchedule[medId][subMedId][week] = Array.from(days);
-                });
-            });
+            if (subMedsWithoutSchedule.length === med.selectedMedications.length) {
+                medicationsWithoutSchedule.push(med);
+            }
         });
+
+        // Проверка валидности расписания для процедур
+        selectedProcedures.forEach(proc => {
+            const procId = 'procedure_' + proc.id;
             
+            if (!selectedDays[procId] || 
+                !Object.values(selectedDays[procId]).some(daySet => daySet.size > 0)) {
+                proceduresWithoutSchedule.push(proc);
+            }
+        });
+
+        // Формируем сообщение об ошибке, если необходимо
+        if (medicationsWithoutSchedule.length > 0 || proceduresWithoutSchedule.length > 0) {
+            let errorMessage = "Не выбрано ни одного дня для: ";
+            
+            if (medicationsWithoutSchedule.length > 0) {
+                const medicationNames = medicationsWithoutSchedule.map(med => med.medication.name).join(', ');
+                errorMessage += `препаратов (${medicationNames})`;
+                
+                if (proceduresWithoutSchedule.length > 0) {
+                    errorMessage += ' и ';
+                }
+            }
+            
+            if (proceduresWithoutSchedule.length > 0) {
+                const procedureNames = proceduresWithoutSchedule.map(proc => proc.name).join(', ');
+                errorMessage += `процедур (${procedureNames})`;
+            }
+            
+            validationError = errorMessage;
+            return;
+        }
+    
+        try {
+            isLoading = true;
+            
+            // Преобразуем Set обратно в массивы для хранения
+            const formattedSchedule = {};
+            
+            // Обрабатываем как лекарства, так и процедуры
+            Object.entries(selectedDays).forEach(([id, value]) => {
+                if (id.startsWith('procedure_')) {
+                    // Для процедур
+                    formattedSchedule[id] = {};
+                    
+                    Object.entries(value).forEach(([week, days]) => {
+                        formattedSchedule[id][week] = Array.from(days);
+                    });
+                } else {
+                    // Для лекарств
+                    formattedSchedule[id] = {};
+                    
+                    Object.entries(value).forEach(([subMedId, weeks]) => {
+                        formattedSchedule[id][subMedId] = {};
+                        
+                        Object.entries(weeks).forEach(([week, days]) => {
+                            formattedSchedule[id][subMedId][week] = Array.from(days);
+                        });
+                    });
+                }
+            });
+                
             // Создание новой схемы или редакции
             const newScheme = {
                 id: String(Date.now()),
@@ -602,6 +755,29 @@
                         concentration: subMed.concentration || ''
                     })) : []
                 })),
+                procedures: selectedProcedures.map(proc => {
+                    // Получаем фактический ID, используемый в расписании
+                    const procIdParts = proc.id.split('_');
+                    const procId = procIdParts.length > 1 ? proc.id : 'procedure_' + proc.id;
+                    
+                    return {
+                        id: procId,
+                        type: proc.type,
+                        name: proc.name,
+                        time: proc.time,
+                        isTimeOnly: proc.isTimeOnly,
+                        settings: proc.settings ? {
+                            polarity: proc.settings.polarity,
+                            hasDiluent: proc.settings.hasDiluent,
+                            diluent: proc.settings.hasDiluent === 'да' && proc.settings.diluent 
+                                ? { 
+                                    type: proc.settings.diluent.type,
+                                    dosage: proc.settings.diluent.dosage || ''
+                                }
+                                : null
+                        } : null
+                    };
+                }),
                 createdFor: {
                     serviceId,
                     medicalCardId
@@ -616,14 +792,14 @@
             const result = await treatmentService.saveSchematic(newScheme);
             
             if (result && result.success) {
-                    // Перезагружаем страницу после успешного сохранения
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 500); // Небольшая задержка для улучшения UX
-                } else {
-                    throw new Error(result?.message || "Не удалось сохранить схему");
-                }
-            
+                // Перезагружаем страницу после успешного сохранения
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500); // Небольшая задержка для улучшения UX
+            } else {
+                throw new Error(result?.message || "Не удалось сохранить схему");
+            }
+                
         } catch (err) {
             console.error('Ошибка публикации схемы:', err);
             validationError = `Ошибка сохранения: ${err.message || "Пожалуйста, попробуйте позже"}`;
@@ -632,8 +808,8 @@
             // Показываем уведомление об ошибке пользователю
             alert(`Не удалось сохранить схему лечения. Пожалуйста, попробуйте позже.\n\nТехническая информация: ${err.message}`);
         }
-    }
-    
+        }
+        
     // Закрытие модального окна с формой препарата
     function closeMedicationForm() {
         isMedicationFormOpen = false;
@@ -641,51 +817,71 @@
     }
 
     function goBackToSchemes() {
+
+        if (hasUnsavedChanges()) {
+            const confirmed = confirm("У вас есть несохраненные изменения. Вы уверены, что хотите вернуться к списку схем?");
+            
+            if (!confirmed) {
+                return;
+            }
+        }
+
+        // Полностью сбрасываем состояние схемы
+        selectedMedications = [];
+        selectedProcedures = []; // Важно сбросить и процедуры
+        selectedDays = {};
+        validationError = '';
+        
+        // Возвращаемся к списку схем
         isCreatingNewScheme = false;
     }
 
-  // Добавляем функцию для выравнивания высоты строк
-  function equalizeRowHeights() {
-    // Сначала скрываем таблицу во время выравнивания
-    tableReady = false;
-    
-    setTimeout(() => {
-        const rows = document.querySelectorAll('.schedule-row');
-        
-        // Сбрасываем высоту строк для корректного расчета
-        rows.forEach(row => {
-            row.style.height = 'auto';
-        });
-        
-        // Находим максимальную высоту
-        let maxHeight = 0;
-        rows.forEach(row => {
-            const height = row.offsetHeight;
-            if (height > maxHeight) {
-                maxHeight = height;
-            }
-        });
-        
-        // Устанавливаем одинаковую высоту для всех строк
-        if (maxHeight > 0) {
-            rows.forEach(row => {
-                row.style.height = `${maxHeight}px`;
-                
-                // Также устанавливаем высоту для ячеек с днями
-                const cells = row.querySelectorAll('.schedule-cell');
-                cells.forEach(cell => {
-                cell.style.height = `${maxHeight}px`;
-                });
-            });
-        }
-        
-        // Отображаем таблицу после выравнивания
-        setTimeout(() => {
-            tableReady = true;
-        }, 50);
-    }, 50); // Небольшая задержка для уверенности, что DOM обновился
+    function hasUnsavedChanges() {
+        return selectedMedications.length > 0 || selectedProcedures.length > 0;
     }
-    
+
+    function equalizeRowHeights() {
+        // Сначала скрываем таблицу во время выравнивания
+        tableReady = false;
+        
+        setTimeout(() => {
+            const rows = document.querySelectorAll('.schedule-row, .procedure-row');
+            
+            // Сбрасываем высоту строк для корректного расчета
+            rows.forEach(row => {
+                row.style.height = 'auto';
+            });
+            
+            // Находим максимальную высоту
+            let maxHeight = 0;
+            rows.forEach(row => {
+                const height = row.offsetHeight;
+                if (height > maxHeight) {
+                    maxHeight = height;
+                }
+            });
+            
+            // Устанавливаем одинаковую высоту для всех строк
+            if (maxHeight > 0) {
+                rows.forEach(row => {
+                    row.style.height = `${maxHeight}px`;
+                    
+                    // Также устанавливаем высоту для ячеек с днями
+                    const cells = row.querySelectorAll('.schedule-cell');
+                    cells.forEach(cell => {
+                        cell.style.height = `${maxHeight}px`;
+                    });
+                });
+            }
+            
+            // Отображаем таблицу после выравнивания
+            setTimeout(() => {
+                tableReady = true;
+            }, 50);
+        }, 50); // Небольшая задержка для уверенности, что DOM обновился
+    }
+
+
     // Вызываем функцию при изменении selectedMedications
     $: if (selectedMedications) {
         equalizeRowHeights();
@@ -721,7 +917,7 @@
         overlayColor={modalOverlayColor}
         confirmBeforeClose={requireConfirmation}
         minHeight="450px"
-        maxHeight="820px"
+        maxHeight="720px"
         height="100%"
         padding="50px 20px 20px 20px;"
     >
@@ -761,9 +957,17 @@
                         <div class="schedule-head">
                             <h3>Создание новой схемы лечения</h3>
     
-                            {#if selectedMedications.length > 0 && !isScheduleValid}
+                            {#if (selectedMedications.length > 0 || selectedProcedures.length > 0) && !isScheduleValid}
                                 <div class="validation-error">
-                                    ⚠️ Необходимо выбрать дни приема для всех препаратов
+                                    {#if selectedMedications.length > 0 && selectedProcedures.length <= 0 }
+                                        ⚠️ Необходимо выбрать дни приема <strong>для всех препаратов</strong>!
+                                    {:else if selectedMedications.length <= 0 && selectedProcedures.length > 0 }
+                                        ⚠️ Необходимо выбрать дни приема <strong>для всех процедур</strong>!
+                                    {:else}
+                                        ⚠️ Необходимо выбрать дни приема <strong>для всех препаратов и процедур!</strong>
+                                    {/if}
+                                        
+                                    
                                 </div>
                             {/if}
                         </div>
@@ -781,95 +985,126 @@
                                     {/each}
                                 </div>
                                 
-                                {#if selectedMedications.length > 0}
-                                    {#each selectedMedications as medication (medication.id)}
-                                        {#each medication.selectedMedications as subMed, subIndex (subMed.id)}
-                                            <div class="schedule-row {!selectedDays[medication.id] || !selectedDays[medication.id][subMed.id] || !Object.values(selectedDays[medication.id][subMed.id] || {}).some(daySet => daySet.size > 0) ? 'error-highlight' : ''}">
-                                                <div class="sub-medication-cell">
-                                                    <div class="sub-medication-info">
-                                                        <div style="display: grid; ">
-                                                            {#if medication.selectedMedications.length === 1}
-                                                                <span class="sub-medication-name">{subMed.name} ({subMed.dosage})</span>
-                                                                <div class="single-med-admin-info">
-                                                                    {#if medication.hasDiluent === 'да' && medication.diluents && medication.diluents.length > 0}
-                                                                        {#each medication.diluents as diluent}
-                                                                            {' + '}{diluent.type} ({diluent.dosage})
-                                                                        {/each}
-                                                                    {/if}
-                                                                    {medication.administrationType}
-                                                                    {#if medication.administrationType === 'в/в' && medication.ivMethod}
-                                                                        ({medication.ivMethod})
-                                                                    {/if}
-                                                                </div>
-                                                            {:else}
-                                                                <span class="sub-medication-cocktail-name">• {subMed.name} ({subMed.dosage})</span>
-                                                            {/if}
-                                                        </div>
-
-                                                        <!-- Если это единственный препарат, добавляем информацию о введении здесь -->
-                                                        {#if medication.selectedMedications.length === 1}
-                                                            <div class="medication-actions">
-                                                                <button class="btn-edit-medication" on:click={() => editMedication(medication)}>
-                                                                    ✏️
-                                                                </button>
-                                                                <button class="btn-delete-medication" on:click={() => deleteMedication(medication.id)}>
-                                                                    🗑️
-                                                                </button>
-                                                            </div>
-                                                        {/if}
-                                                    </div>
-                                                </div>
-                                                
-                                                <!-- Ячейки дней -->
-                                                {#each [1,2,3,4,5,6,7,8,9,10,11,12,13,14] as day}
-                                                    <div 
-                                                        class="schedule-cell {day > 10 ? 'extended-treatment-day' : ''}" 
-                                                        on:click={() => toggleDay(medication.id, subMed.id, 1, day)}
-                                                        class:selected={selectedDays[medication.id] && 
-                                                                    selectedDays[medication.id][subMed.id] && 
-                                                                    selectedDays[medication.id][subMed.id][1] && 
-                                                                    selectedDays[medication.id][subMed.id][1].has(day)}
-                                                        title={day > 10 ? 'Внимание: продолжительное лечение. Рекомендуется не превышать 10-дневный курс, если нет особых показаний' : ''}
-                                                    >
-                                                        {#if selectedDays[medication.id] && selectedDays[medication.id][subMed.id] && selectedDays[medication.id][subMed.id][1] && selectedDays[medication.id][subMed.id][1].has(day)}
-                                                            {@html checkSvg}
-                                                        {/if}
-                                                    </div>
-                                                {/each}
-                                            </div>
-                                        {/each}
-
-                                        {#if medication.selectedMedications.length > 1}
-                                            <!-- Если это коктейль, добавляем общую информацию после всех препаратов -->
-                                            <div class="schedule-row administration-info-row">
-                                                <div class="administration-cell">
-                                                    <div class="administration-info">
-                                                        {#if medication.hasDiluent === 'да' && medication.diluents && medication.diluents.length > 0}
-                                                            {#each medication.diluents as diluent}
-                                                                {' + '}{diluent.type} ({diluent.dosage})
-                                                            {/each}
-                                                        {/if}
-                                                        {medication.administrationType}
-                                                        {#if medication.administrationType === 'в/в' && medication.ivMethod}
-                                                            ({medication.ivMethod})
-                                                        {/if}
-                                                    </div>
-                                                    <div class="medication-actions">
-                                                        <button class="btn-edit-medication" on:click={() => editMedication(medication)}>
-                                                            ✏️
-                                                        </button>
-                                                        <button class="btn-delete-medication" on:click={() => deleteMedication(medication.id)}>
-                                                            🗑️
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                <!-- Пустые ячейки для дней (чтобы сохранить структуру сетки) -->
-                                                {#each [1,2,3,4,5,6,7,8,9,10,11,12,13,14] as day}
-                                                    <div class="empty-cell"></div>
-                                                {/each}
+                                {#if selectedMedications.length > 0 || selectedProcedures.length > 0}
+                                    
+                                    {#if selectedMedications.length > 0}
+                                        {#if selectedProcedures.length > 0}
+                                            <div class="procedure-section-divider">
+                                                <h4>Медикаментозное лечение</h4>
                                             </div>
                                         {/if}
-                                    {/each}
+                                        {#each selectedMedications as medication (medication.id)}
+                                            {#each medication.selectedMedications as subMed, subIndex (subMed.id)}
+                                                <div class="schedule-row {!selectedDays[medication.id] || !selectedDays[medication.id][subMed.id] || !Object.values(selectedDays[medication.id][subMed.id] || {}).some(daySet => daySet.size > 0) ? 'error-highlight' : ''}">
+                                                    <div class="sub-medication-cell">
+                                                        <div class="sub-medication-info">
+                                                            <div style="display: grid; ">
+                                                                {#if medication.selectedMedications.length === 1}
+                                                                    <span class="sub-medication-name">{subMed.name} ({subMed.dosage})</span>
+                                                                    <div class="single-med-admin-info">
+                                                                        {#if medication.hasDiluent === 'да' && medication.diluents && medication.diluents.length > 0}
+                                                                            {#each medication.diluents as diluent}
+                                                                                {' + '}{diluent.type} ({diluent.dosage})
+                                                                            {/each}
+                                                                        {/if}
+                                                                        {medication.administrationType}
+                                                                        {#if medication.administrationType === 'в/в' && medication.ivMethod}
+                                                                            ({medication.ivMethod})
+                                                                        {/if}
+                                                                    </div>
+                                                                {:else}
+                                                                    <span class="sub-medication-cocktail-name">• {subMed.name} ({subMed.dosage})</span>
+                                                                {/if}
+                                                            </div>
+
+                                                            <!-- Если это единственный препарат, добавляем информацию о введении здесь -->
+                                                            {#if medication.selectedMedications.length === 1}
+                                                                <div class="medication-actions">
+                                                                    <button class="btn-edit-medication" on:click={() => editMedication(medication)}>
+                                                                        ✏️
+                                                                    </button>
+                                                                    <button class="btn-delete-medication" on:click={() => deleteMedication(medication.id)}>
+                                                                        🗑️
+                                                                    </button>
+                                                                </div>
+                                                            {/if}
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <!-- Ячейки дней -->
+                                                    {#each [1,2,3,4,5,6,7,8,9,10,11,12,13,14] as day}
+                                                        <div 
+                                                            class="schedule-cell {day > 10 ? 'extended-treatment-day' : ''}" 
+                                                            on:click={() => toggleDay(medication.id, subMed.id, 1, day)}
+                                                            class:selected={selectedDays[medication.id] && 
+                                                                        selectedDays[medication.id][subMed.id] && 
+                                                                        selectedDays[medication.id][subMed.id][1] && 
+                                                                        selectedDays[medication.id][subMed.id][1].has(day)}
+                                                            title={day > 10 ? 'Внимание: продолжительное лечение. Рекомендуется не превышать 10-дневный курс, если нет особых показаний' : ''}
+                                                        >
+                                                            {#if selectedDays[medication.id] && selectedDays[medication.id][subMed.id] && selectedDays[medication.id][subMed.id][1] && selectedDays[medication.id][subMed.id][1].has(day)}
+                                                                {@html checkSvg}
+                                                            {/if}
+                                                        </div>
+                                                    {/each}
+                                                </div>
+                                            {/each}
+
+                                            {#if medication.selectedMedications.length > 1}
+                                                <!-- Если это коктейль, добавляем общую информацию после всех препаратов -->
+                                                <div class="schedule-row administration-info-row">
+                                                    <div class="administration-cell">
+                                                        <div class="administration-info">
+                                                            {#if medication.hasDiluent === 'да' && medication.diluents && medication.diluents.length > 0}
+                                                                {#each medication.diluents as diluent}
+                                                                    {' + '}{diluent.type} ({diluent.dosage})
+                                                                {/each}
+                                                            {/if}
+                                                            {medication.administrationType}
+                                                            {#if medication.administrationType === 'в/в' && medication.ivMethod}
+                                                                ({medication.ivMethod})
+                                                            {/if}
+                                                        </div>
+                                                        <div class="medication-actions">
+                                                            <button class="btn-edit-medication" on:click={() => editMedication(medication)}>
+                                                                ✏️
+                                                            </button>
+                                                            <button class="btn-delete-medication" on:click={() => deleteMedication(medication.id)}>
+                                                                🗑️
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <!-- Пустые ячейки для дней (чтобы сохранить структуру сетки) -->
+                                                    {#each [1,2,3,4,5,6,7,8,9,10,11,12,13,14] as day}
+                                                        <div class="empty-cell"></div>
+                                                    {/each}
+                                                </div>
+                                            {/if}
+                                        {/each}
+                                    {/if}
+
+                                    {#if selectedProcedures.length > 0}
+                                        {#if selectedMedications.length > 0}
+                                            <div class="procedure-section-divider">
+                                                <h4>Физиотерапевтические процедуры</h4>
+                                            </div>
+                                        {/if}
+
+                                        {#each selectedProcedures as procedure (procedure.id)}
+                                            <ProcedureItem 
+                                                procedure={procedure}
+                                                onDelete={deleteProcedure}
+                                                isDaySelected={(day) => {
+                                                    const key = 'procedure_' + procedure.id;
+                                                    return selectedDays[key] && 
+                                                        selectedDays[key][1] && 
+                                                        selectedDays[key][1].has(day);
+                                                }}
+                                                onDayToggle={(day) => toggleProcedureDay(procedure.id, day)}
+                                            />
+                                        {/each}
+                                    {/if}
+
                                 {:else}
                                     <p class="empty">Пока назначений нет</p>
                                 {/if}
@@ -877,28 +1112,34 @@
                             </div>
                         </div>
                     </div>
-
                     <div class="schedule-actions">
                         <button class="btn-back" on:click={goBackToSchemes}>← Назад</button>
-
-                        <button 
-                            class="btn-add-medication" 
-                            on:click={(e) => {
-                                openNewMedicationForm();
-                            }}
-                        >
-                            + Добавить препарат
-                        </button>
-
+                        
+                        <div class="add-buttons">
+                            <button 
+                                class="btn-add-medication" 
+                                on:click={openNewMedicationForm}
+                            >
+                                + Добавить препарат
+                            </button>
+                            
+                            <button 
+                                class="btn-add-procedure" 
+                                on:click={openProcedureForm}
+                            >
+                                + Добавить процедуру
+                            </button>
+                        </div>
+                    
                         <button 
                             class="btn-continue" 
-                            disabled={selectedMedications.length === 0 || isLoading || !isScheduleValid}
+                            disabled={(selectedMedications.length === 0 && selectedProcedures.length === 0) || isLoading || !isScheduleValid}
                             on:click={publishTreatmentScheme}
                         >
                             {#if isLoading}
                                 <span class="spinner"></span> Сохранение...
                             {:else}
-                                Добавить схему
+                                Создать схему
                             {/if}
                         </button>
                     </div>
@@ -915,6 +1156,13 @@
         medicationForm={currentMedicationForm}
         isEditing={!!editingMedicationId}
         onSave={handleSaveMedication}
+        overlayColor="rgba(0,0,0,0)"
+    />
+
+    <ProcedureFormModal
+        isOpen={isProcedureFormOpen}
+        onClose={closeProcedureForm}
+        onSave={handleSaveProcedure}
         overlayColor="rgba(0,0,0,0)"
     />
 </div>
@@ -1088,12 +1336,15 @@
 
     .btn-edit-medication, 
     .btn-delete-medication {
+        text-decoration: none;
+        text-transform: none;
         padding: 2px 5px;
-        font-size: 12px;
+        font-size: 16px;
         border: none;
         border-radius: 3px;
         cursor: pointer;
         background-color: transparent;
+        font-style: normal;
     }
 
     .btn-edit-medication:hover {
@@ -1193,7 +1444,7 @@
 
     .administration-cell {
         grid-column: 1;
-        padding: 5px 10px 5px 40px;
+        padding: 5px 70px 5px 40px;
         border-right: 1px solid #ddd;
         color: #555;
         display: flex;
@@ -1209,13 +1460,10 @@
         width: max-content;
         height: 20px;
         position: absolute;
-        top: -7px;
-        left: 0;
-        right: 0;
+        right: 20px;
         margin: auto;
         text-align: center;
         font-size: 12px;
-        opacity: 0.5;
     }
 
     .empty-cell {
@@ -1238,6 +1486,40 @@
         color: #555;
         margin-top: 4px;
         font-size: 13px;
+    }
+
+
+    .add-buttons {
+        display: flex;
+        gap: 10px;
+    }
+    
+    .btn-add-procedure {
+        background-color: #9b59b6;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 18px;
+    }
+    
+    .btn-add-procedure:hover {
+        background-color: #8e44ad;
+    }
+    
+    .procedure-section-divider {
+        padding: 10px 15px;
+        background-color: #f8f9fa;
+        border-top: 1px solid #e9ecef;
+        border-bottom: 1px solid #e9ecef;
+        text-align: center;
+    }
+    
+    .procedure-section-divider h4 {
+        margin: 0;
+        font-size: 18px;
+        color: #6c757d;
     }
 
     @keyframes spin {

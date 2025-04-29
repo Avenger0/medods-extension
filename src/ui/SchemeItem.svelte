@@ -17,6 +17,25 @@
   export let useButtonTextColor = '#fff';
   export let editButtonBgColor = '#6c757d';
   export let editButtonTextColor = '#fff';
+
+  $: hasProcedures = scheme.procedures && Array.isArray(scheme.procedures) && scheme.procedures.length > 0;
+
+   // Функция для получения иконки типа процедуры
+   function getProcedureTypeIcon(type) {
+    switch(type) {
+      case 'transair':
+        return '🧠'; // Иконка для Трансаира
+      case 'laser':
+        return '🔆'; // Иконка для лазерной терапии
+      case 'vlok':
+        return '💉'; // Иконка для ВЛОК
+      case 'electrophoresis':
+        return '⚡'; // Иконка для электрофореза
+      default:
+        return '⚕️'; // Иконка по умолчанию (медицинский символ)
+    }
+  }
+
 </script>
 
 <div class="scheme-item" 
@@ -47,6 +66,15 @@
           {/if}
         </div>
       {/each}
+
+      {#if hasProcedures}
+          {#each scheme.procedures as proc}
+            <div class="medication-details">
+              {getProcedureTypeIcon(proc.type)} {proc.name} {proc.time} мин
+            </div>
+          {/each}
+      {/if}
+
     </div>
   </div>
   

@@ -1,4 +1,6 @@
 <script>
+  import { onMount } from 'svelte';
+
   export let isOpen = false;
   export let onClose;
   export let maxWidth = '1100px';
@@ -15,6 +17,12 @@
   export let overlayPadding = '0px';
   export let overlayAlign = 'center';
   export let confirmBeforeClose = false;
+
+  // Переменные для адаптивного позиционирования
+  let windowWidth;
+  let actualOverlayAlign;
+  let actualOverlayPadding;
+  const BREAKPOINT = 1600; // Ширина экрана, при которой меняется позиционирование
 
   // Функция для подтверждения закрытия
   function confirmClose() {
@@ -37,6 +45,44 @@
           onClose();
       }
   }
+
+  // Функция для обновления позиционирования на основе ширины окна
+  function updatePositioning() {
+      windowWidth = window.innerWidth;
+      if (windowWidth < BREAKPOINT) {
+          // Для маленьких экранов центрируем модальное окно
+          actualOverlayAlign = 'center';
+          actualOverlayPadding = '0px';
+      } else {
+          // Для больших экранов используем предоставленные значения
+          actualOverlayAlign = overlayAlign;
+          actualOverlayPadding = overlayPadding;
+      }
+  }
+
+  // Обработчик изменения размера окна
+  function handleResize() {
+      updatePositioning();
+  }
+
+  // Инициализация при монтировании
+  onMount(() => {
+      updatePositioning();
+      window.addEventListener('resize', handleResize);
+      
+      return () => {
+          window.removeEventListener('resize', handleResize);
+      };
+  });
+
+  // Обновляем позиционирование при изменении пропсов
+  $: {
+      overlayAlign; // отслеживаем изменения
+      overlayPadding; // отслеживаем изменения
+      if (typeof window !== 'undefined') {
+          updatePositioning();
+      }
+  }
 </script>
 
 {#if isOpen}
@@ -45,8 +91,8 @@
     style="
       --overlay-color: {overlayColor};
       --z-index: {zIndex};
-      --overlay-padding: {overlayPadding};
-      --overlay-align: {overlayAlign};
+      --overlay-padding: {actualOverlayPadding};
+      --overlay-align: {actualOverlayAlign};
     "
     on:click={handleOverlayClick}
   >
@@ -71,49 +117,49 @@
   </div>
 {/if}
   
-  <style>
-    .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: var(--overlay-color, rgba(0,0,0,0.5));
-      display: flex;
-      justify-content: var(--overlay-align, 'center');;
-      align-items: center;
-      z-index: var(--z-index, 1000);
-      overflow-y: auto;
-      padding: var(--overlay-padding, '0px');
-    }
+<style>
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--overlay-color, rgba(0,0,0,0.5));
+    display: flex;
+    justify-content: var(--overlay-align, 'center');
+    align-items: center;
+    z-index: var(--z-index, 1000);
+    overflow-y: auto;
+    padding: var(--overlay-padding, '0px');
+  }
+
+  .modal-content {
+    background: var(--bg-color, white);
+    border-radius: var(--border-radius, 8px);
+    max-width: var(--max-width, 1100px);
+    max-height: var(--max-height, 80%);
+    min-height: var(--min-height, 80%);
+    width: calc(100% - 40px);
+    position: relative;
+    padding: var(--padding, 20px);
+    box-shadow: var(--box-shadow, 0 4px 6px rgba(0,0,0,0.1));
+    overflow-y: auto;
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #999;
+    transition: color 0.2s ease;
+    z-index: 1;
+  }
   
-    .modal-content {
-      background: var(--bg-color, white);
-      border-radius: var(--border-radius, 8px);
-      max-width: var(--max-width, 1100px);
-      max-height: var(--max-height, 80%);
-      min-height: var(--min-height, 80%);
-      width: calc(100% - 40px);
-      position: relative;
-      padding: var(--padding, 20px);
-      box-shadow: var(--box-shadow, 0 4px 6px rgba(0,0,0,0.1));
-      overflow-y: auto;
-    }
-  
-    .modal-close {
-      position: absolute;
-      top: 15px;
-      right: 15px;
-      background: none;
-      border: none;
-      font-size: 20px;
-      cursor: pointer;
-      color: #999;
-      transition: color 0.2s ease;
-      z-index: 1;
-    }
-    
-    .modal-close:hover {
-      color: #333;
-    }
-  </style>
+  .modal-close:hover {
+    color: #333;
+  }
+</style>
