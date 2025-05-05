@@ -289,11 +289,11 @@
                 dosage: med.dosage,
                 manufacturer: med.manufacturer || '',
                 dosageForm: med.dosageForm || '',
-                concentration: med.concentration || ''
+                concentration: med.concentration || '',
+                hasDailyDosages: med.hasDailyDosages || false,
+                dailyDosages: med.dailyDosages ? JSON.parse(JSON.stringify(med.dailyDosages)) : {}
             }));
         } else if (medication.medication) {
-            // Если нет selectedMedications, создаем из medication
-            // Возможно это старая схема лечения, попробуем восстановить из названия
             const nameMatch = medication.medication.name.match(/(.+?)\s*\(([^)]+)\)/);
             
             medsToPut = [{
@@ -325,6 +325,11 @@
         
         editingMedicationId = medication.id;
         isMedicationFormOpen = true;
+
+            // Добавим логирование для отладки
+        console.log('Редактирование препарата:', medication.id);
+        console.log('Выбранные препараты:', medsToPut);
+        console.log('Дозировки по дням:', medsToPut.map(m => ({id: m.id, hasDailyDosages: m.hasDailyDosages, dailyDosages: m.dailyDosages})));
     }
 
     // Удаление препарата
@@ -361,12 +366,16 @@
                     
                     // Формируем название препарата с дозировкой
                     const medNameWithDosage = medsArray.length > 0 
-                        ? medsArray.map(m => `${m.name || ''} (${m.dosage || ''})`) 
+                        ? medsArray.map(m => `${m.name || ''} (${m.hasDailyDosages ? 'по дням' : (m.dosage || '')})`) 
                         : 'Неизвестный препарат';
-                    
+                        
                     return {
                         ...med,
-                        selectedMedications: medsArray, 
+                        selectedMedications: medsArray.map(m => ({
+                            ...m,
+                            hasDailyDosages: m.hasDailyDosages || false,
+                            dailyDosages: m.dailyDosages || {}
+                        })),
                         medication: {
                             name: medNameWithDosage.join(' + ')
                         },
@@ -390,13 +399,17 @@
             
             // Формируем название препарата с дозировкой
             const medNameWithDosage = formData.selectedMedications.map(m => 
-                `${m.name || ''} (${m.dosage || ''})`
+                `${m.name || ''} (${m.hasDailyDosages ? 'по дням' : (m.dosage || '')})`
             );
             
             // Добавление нового "коктейля" препаратов
             const newMedication = {
                 id: String(Date.now()) + '_' + Math.random().toString(36).substring(2, 9),
-                selectedMedications: formData.selectedMedications,
+                selectedMedications: formData.selectedMedications.map(m => ({
+                    ...m,
+                    hasDailyDosages: m.hasDailyDosages || false,
+                    dailyDosages: m.dailyDosages || {}
+                })),
                 medication: {
                     id: formData.selectedMedications[0]?.id || Date.now(), 
                     name: medNameWithDosage.join(' + ')
@@ -412,6 +425,38 @@
         }
         
         isMedicationFormOpen = false;
+
+        selectedMedications.forEach(med => {
+            if (med.selectedMedications) {
+                med.selectedMedications.forEach(subMed => {
+                    if (subMed.hasDailyDosages && subMed.dailyDosages) {
+                        // Для каждого дня с дозировкой
+                        Object.keys(subMed.dailyDosages).forEach(dayStr => {
+                            const day = parseInt(dayStr, 10);
+                            if (!isNaN(day)) {
+                                // Создаем структуру, если необходимо
+                                if (!selectedDays[med.id]) {
+                                    selectedDays[med.id] = {};
+                                }
+                                if (!selectedDays[med.id][subMed.id]) {
+                                    selectedDays[med.id][subMed.id] = {};
+                                }
+                                if (!selectedDays[med.id][subMed.id][1]) {
+                                    selectedDays[med.id][subMed.id][1] = new Set();
+                                }
+                                
+                                // Автоматически выбираем день
+                                selectedDays[med.id][subMed.id][1].add(day);
+                            }
+                        });
+                    }
+                });
+            }
+        });
+
+        // Триггерим реактивность
+        selectedDays = {...selectedDays};
+
     }
 
     // Обработчики для процедур
@@ -485,8 +530,6 @@
         //setTimeout(equalizeRowHeights, 50);
     }
     
-    // Переключение дней в расписании
-    // Обновление функции toggleDay
     function toggleDay(medicationId, subMedId, week, day) {
         if (!selectedDays[medicationId]) {
             selectedDays[medicationId] = {};
@@ -500,6 +543,30 @@
             selectedDays[medicationId][subMedId][week] = new Set();
         }
 
+        // Ищем информацию о препарате
+        const medication = selectedMedications.find(med => med.id === medicationId);
+        const subMed = medication?.selectedMedications?.find(m => m.id === subMedId);
+        
+        // Проверяем, использует ли препарат дозировки по дням
+        if (subMed?.hasDailyDosages) {
+            // Если уже есть дозировка для этого дня, не даем снять отметку
+            if (selectedDays[medicationId][subMedId][week].has(day) && subMed.dailyDosages[day]) {
+                const confirmed = confirm(`День ${day} имеет индивидуальную дозировку "${subMed.dailyDosages[day]}". Чтобы снять отметку с этого дня, нужно сначала удалить дозировку. Перейти к редактированию дозировок?`);
+                
+                if (confirmed) {
+                    editMedication(medication);
+                }
+                return; // В любом случае не меняем отметку дня
+            } 
+            // Полностью запрещаем добавление дня через таблицу для препаратов с дозировками по дням
+            else {
+                alert(`Препарат "${subMed.name}" использует индивидуальные дозировки по дням. Для отметки дней используйте форму редактирования дозировок.`);
+                editMedication(medication);
+                return;
+            }
+        }
+
+        // Стандартная логика переключения только для препаратов без дозировок по дням
         if (selectedDays[medicationId][subMedId][week].has(day)) {
             selectedDays[medicationId][subMedId][week].delete(day);
         } else {
@@ -520,7 +587,11 @@
             // Получаем список препаратов для коктейля
             let selectedMeds = [];
             if (med.selectedMedications && Array.isArray(med.selectedMedications)) {
-                selectedMeds = med.selectedMedications.map(subMed => ({...subMed}));
+                selectedMeds = med.selectedMedications.map(subMed => ({
+                    ...subMed,
+                    hasDailyDosages: subMed.hasDailyDosages || false, 
+                    dailyDosages: subMed.dailyDosages || {}
+                }));
             } else {
                 // Если список препаратов отсутствует (для обратной совместимости)
                 selectedMeds = [{
@@ -530,7 +601,9 @@
                     dosage: med.dosage || (med.name.match(/\(([^)]+)\)/) ? med.name.match(/\(([^)]+)\)/)[1] : ''),
                     manufacturer: med.manufacturer || '',
                     dosageForm: med.dosageForm || '',
-                    concentration: med.concentration || ''
+                    concentration: med.concentration || '',
+                    hasDailyDosages: false,
+                    dailyDosages: {}
                 }];
             }
             
@@ -603,6 +676,36 @@
                 }
             });
         }
+
+        selectedMedications.forEach(med => {
+            if (med.selectedMedications) {
+                med.selectedMedications.forEach(subMed => {
+                    if (subMed.hasDailyDosages && subMed.dailyDosages) {
+                        // Для каждого дня с дозировкой
+                        Object.keys(subMed.dailyDosages).forEach(dayStr => {
+                            const day = parseInt(dayStr, 10);
+                            if (!isNaN(day)) {
+                                // Создаем структуру, если необходимо
+                                if (!selectedDays[med.id]) {
+                                    selectedDays[med.id] = {};
+                                }
+                                if (!selectedDays[med.id][subMed.id]) {
+                                    selectedDays[med.id][subMed.id] = {};
+                                }
+                                if (!selectedDays[med.id][subMed.id][1]) {
+                                    selectedDays[med.id][subMed.id][1] = new Set();
+                                }
+                                
+                                // Автоматически выбираем день
+                                selectedDays[med.id][subMed.id][1].add(day);
+                            }
+                        });
+                    }
+                });
+            }
+        });
+
+        selectedDays = {...selectedDays};
         
         isCreatingNewScheme = true;
         validationError = '';
@@ -620,6 +723,40 @@
     function editExistingScheme(scheme) {
         selectExistingScheme(scheme); // Переиспользуем функцию выбора
         currentEditingScheme = scheme;
+
+        setTimeout(() => {
+            // Дополнительная проверка после асинхронной загрузки
+            selectedMedications.forEach(med => {
+                if (med.selectedMedications) {
+                    med.selectedMedications.forEach(subMed => {
+                        if (subMed.hasDailyDosages && subMed.dailyDosages) {
+                            // Для каждого дня с дозировкой
+                            Object.keys(subMed.dailyDosages).forEach(dayStr => {
+                                const day = parseInt(dayStr, 10);
+                                if (!isNaN(day)) {
+                                    // Создаем структуру, если необходимо
+                                    if (!selectedDays[med.id]) {
+                                        selectedDays[med.id] = {};
+                                    }
+                                    if (!selectedDays[med.id][subMed.id]) {
+                                        selectedDays[med.id][subMed.id] = {};
+                                    }
+                                    if (!selectedDays[med.id][subMed.id][1]) {
+                                        selectedDays[med.id][subMed.id][1] = new Set();
+                                    }
+                                    
+                                    // Автоматически выбираем день
+                                    selectedDays[med.id][subMed.id][1].add(day);
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+            
+            // Обновляем состояние для триггера реактивности
+            selectedDays = {...selectedDays};
+        }, 100);
     }
     
     // Публикация схемы лечения
@@ -749,10 +886,11 @@
                         name: subMed.name,
                         fullName: subMed.fullName,
                         dosage: subMed.dosage,
-                        // Добавляем другие нужные поля
                         manufacturer: subMed.manufacturer || '',
                         dosageForm: subMed.dosageForm || '',
-                        concentration: subMed.concentration || ''
+                        concentration: subMed.concentration || '',
+                        hasDailyDosages: subMed.hasDailyDosages || false,
+                        dailyDosages: subMed.dailyDosages || {}
                     })) : []
                 })),
                 procedures: selectedProcedures.map(proc => {
@@ -878,7 +1016,22 @@
             setTimeout(() => {
                 tableReady = true;
             }, 50);
-        }, 50); // Небольшая задержка для уверенности, что DOM обновился
+        }, 50);
+    }
+
+    function getDayTitle(medicationId, subMedId, day) {
+        const medication = selectedMedications.find(med => med.id === medicationId);
+        const subMed = medication?.selectedMedications?.find(m => m.id === subMedId);
+        
+        if (subMed?.hasDailyDosages && subMed?.dailyDosages && subMed.dailyDosages[day]) {
+            return `День ${day}: ${subMed.name} - ${subMed.dailyDosages[day]}`;
+        }
+        
+        if (day > 10) {
+            return 'Внимание: продолжительное лечение. Рекомендуется не превышать 10-дневный курс, если нет особых показаний';
+        }
+        
+        return `День ${day}`;
     }
 
 
@@ -1000,7 +1153,7 @@
                                                         <div class="sub-medication-info">
                                                             <div style="display: grid; ">
                                                                 {#if medication.selectedMedications.length === 1}
-                                                                    <span class="sub-medication-name">{subMed.name} ({subMed.dosage})</span>
+                                                                    <span class="sub-medication-name">{subMed.name} {subMed.dosage ? `(${subMed.dosage})` : ''}</span>
                                                                     <div class="single-med-admin-info">
                                                                         {#if medication.hasDiluent === 'да' && medication.diluents && medication.diluents.length > 0}
                                                                             {#each medication.diluents as diluent}
@@ -1013,7 +1166,7 @@
                                                                         {/if}
                                                                     </div>
                                                                 {:else}
-                                                                    <span class="sub-medication-cocktail-name">• {subMed.name} ({subMed.dosage})</span>
+                                                                    <span class="sub-medication-cocktail-name">• {subMed.name} {subMed.dosage ? `(${subMed.dosage})` : ''}</span>
                                                                 {/if}
                                                             </div>
 
@@ -1040,10 +1193,16 @@
                                                                         selectedDays[medication.id][subMed.id] && 
                                                                         selectedDays[medication.id][subMed.id][1] && 
                                                                         selectedDays[medication.id][subMed.id][1].has(day)}
-                                                            title={day > 10 ? 'Внимание: продолжительное лечение. Рекомендуется не превышать 10-дневный курс, если нет особых показаний' : ''}
+                                                            title={getDayTitle(medication.id, subMed.id, day)}
                                                         >
                                                             {#if selectedDays[medication.id] && selectedDays[medication.id][subMed.id] && selectedDays[medication.id][subMed.id][1] && selectedDays[medication.id][subMed.id][1].has(day)}
-                                                                {@html checkSvg}
+                                                                <!-- Дополнительно показываем индикатор для дней с индивидуальной дозировкой -->
+                                                                <div class="day-content">
+                                                                    {@html checkSvg}
+                                                                    {#if subMed.hasDailyDosages && subMed.dailyDosages && subMed.dailyDosages[day]}
+                                                                        <div class="day-dosage-indicator" title="Дозировка: {subMed.dailyDosages[day]}">{subMed.dailyDosages[day]}</div>
+                                                                    {/if}
+                                                                </div>
                                                             {/if}
                                                         </div>
                                                     {/each}
@@ -1520,6 +1679,31 @@
         margin: 0;
         font-size: 18px;
         color: #6c757d;
+    }
+
+    .day-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        position: relative;
+    }
+
+    .day-dosage-indicator {
+        position: absolute;
+        background-color: #ff9800;
+        color: #fff;
+        font-size: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 10px;
+        bottom: 0;
+        right: 0;
+        padding: 0px 2px;
     }
 
     @keyframes spin {

@@ -4,6 +4,7 @@
     import { medicationService } from '../utils/api.js';
     import TreatmentModal from './TreatmentModal.svelte';
     import AddMedicationModal from './AddMedicationModal.svelte';
+    import DailyDosagePopup from './DailyDosagePopup.svelte';
 
     export let serviceId;
     export let isOpen = false;
@@ -20,6 +21,7 @@
     export let onSave;
     
     let isAddMedicationModalOpen = false;
+    let isDailyDosagePopupOpen = false;
 
     let loadedMedications = [];
     let isLoading = false;
@@ -27,6 +29,8 @@
     
     let selectedValues = [];
     let selectComponent;
+
+    let currentMedicationIndex = 0; 
 
     $: medicationsLimitReached = medicationForm?.selectedMedications?.length >= 5;
 
@@ -126,7 +130,11 @@
     $: isFormValid = !!(
         medicationForm.selectedMedications && 
         medicationForm.selectedMedications.length > 0 &&
-        medicationForm.selectedMedications.every(med => med.dosage && med.dosage.trim() !== '') && // Проверка на заполненность дозировок
+        medicationForm.selectedMedications.every(med => 
+            // Проверяем, что либо есть обычная дозировка, либо есть дозировки по дням
+            (med.dosage && med.dosage.trim() !== '' && !med.hasDailyDosages) || 
+            (med.hasDailyDosages && med.dailyDosages && Object.keys(med.dailyDosages).length > 0)
+        ) && 
         medicationForm.administrationType &&
         (medicationForm.administrationType !== 'в/в' || medicationForm.ivMethod) && // Проверяем, что для в/в указан метод
         (medicationForm.hasDiluent === 'нет' || 
@@ -201,7 +209,9 @@
                     manufacturer: med.manufacturer || '',
                     dosageForm: med.dosageForm || '',
                     concentration: med.concentration || '',
-                    dosage: '' // Добавляем поле для дозировки каждого препарата
+                    dosage: '',
+                    dailyDosages: {},
+                    hasDailyDosages: false
                 }
             ];
 
@@ -220,9 +230,37 @@
         }, 10);
     }
 
-    // Удаление препарата
     function removeMedication(index) {
         medicationForm.selectedMedications = medicationForm.selectedMedications.filter((_, i) => i !== index);
+    }
+
+    function openDailyDosagePopup(index) {
+        currentMedicationIndex = index;
+        isDailyDosagePopupOpen = true;
+    }
+
+    function handleDailyDosageUpdate(event) {
+        const { dailyDosages, hasDailyDosages } = event.detail;
+        
+        // Обновляем дозировки для текущего препарата
+        medicationForm.selectedMedications = medicationForm.selectedMedications.map((med, index) => {
+            if (index === currentMedicationIndex) {
+                // Проверяем, что есть хотя бы одна непустая дозировка
+                const hasValidDailyDosages = 
+                    hasDailyDosages && 
+                    dailyDosages && 
+                    Object.values(dailyDosages).some(d => d && d.trim() !== '');
+                
+                // Если включены дозировки по дням, очищаем общую дозировку
+                return {
+                    ...med,
+                    dailyDosages: hasValidDailyDosages ? dailyDosages : {},
+                    hasDailyDosages: hasValidDailyDosages,
+                    dosage: hasValidDailyDosages ? '' : med.dosage
+                };
+            }
+            return med;
+        });
     }
 
 </script>
@@ -230,7 +268,7 @@
 <TreatmentModal
     {isOpen}
     onClose={onClose}
-    maxWidth="650px"
+    maxWidth="750px"
     minHeight="500px"
     maxHeight="650px"
     height="100%"
@@ -286,13 +324,26 @@
                                                   </svg></span> {med.name}</span>
                                             </div>
                                             <div class="medication-dosage">
-                                                <input 
-                                                    type="text" 
-                                                    placeholder="Дозировка"
-                                                    bind:value={med.dosage}
-                                                    class="form-control-ex dosage-input"
-                                                />
-                                            </div>
+                                                {#if med.hasDailyDosages && Object.keys(med.dailyDosages).length > 0}
+                                                    <div class="daily-dosage-indicator">
+                                                        <span class="badge">Дозировка по дням</span>
+                                                        <button class="edit-daily-btn" on:click={() => openDailyDosagePopup(i)}>
+                                                            Изменить
+                                                        </button>
+                                                    </div>
+                                                {:else}
+                                                    <input 
+                                                        type="text" 
+                                                        placeholder="Общая дозировка"
+                                                        bind:value={med.dosage}
+                                                        class="form-control-ex dosage-input"
+                                                        disabled={med.hasDailyDosages}
+                                                    />
+                                                    <button class="daily-dosage-btn" on:click={() => openDailyDosagePopup(i)}>
+                                                        Дозировка по дням
+                                                    </button>
+                                                {/if}
+                                            </div>                            
                                             <button class="medication-remove test" on:click={() => removeMedication(i)} tabindex="-1">×</button>
                                         </div>
                                     {/each}
@@ -443,6 +494,13 @@
         isOpen={isAddMedicationModalOpen}
         onClose={() => isAddMedicationModalOpen = false}
         onMedicationAdded={handleMedicationAdded}
+    />
+    <DailyDosagePopup 
+        isOpen={isDailyDosagePopupOpen}
+        dailyDosages={medicationForm.selectedMedications[currentMedicationIndex]?.dailyDosages || {}}
+        baseDosage={medicationForm.selectedMedications[currentMedicationIndex]?.dosage || ''}
+        on:close={() => isDailyDosagePopupOpen = false}
+        on:update={handleDailyDosageUpdate}
     />
 </TreatmentModal>
 
@@ -653,10 +711,6 @@
         color: #f5222d;
     }
 
-    .medication-dosage {
-        flex: 1;
-    }
-
     .medication-row {
         display: flex;
         align-items: center;
@@ -679,12 +733,13 @@
     .medication-dosage {
         flex: 2;
         display: flex;
-        justify-content: flex-end;
+        align-items: center;
+        justify-content: right;
     }
 
     .dosage-input {
         width: 100%;
-        max-width: 160px;
+        max-width: 165px;
     }
 
     .medication-remove {
@@ -744,6 +799,50 @@
 
     .add-link:hover {
         text-decoration: underline;
+    }
+
+    .daily-dosage-btn {
+        background-color: #f0f0f0;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-size: 12px;
+        margin-left: 5px;
+        cursor: pointer;
+        color: #555;
+    }
+
+    .daily-dosage-btn:hover {
+        background-color: #e0e0e0;
+    }
+
+    .edit-daily-btn {
+        background-color: #3FAECA;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-size: 12px;
+        cursor: pointer;
+    }
+
+    .edit-daily-btn:hover {
+        opacity: 0.9;
+    }
+
+    .daily-dosage-indicator {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .badge {
+        background-color: #e9f5f8;
+        color: #3FAECA;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 12px;
+        border: 1px solid #d1edf3;
     }
 
     :global(.mep-medication-select) {
