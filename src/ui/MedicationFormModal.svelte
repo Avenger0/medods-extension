@@ -339,7 +339,12 @@
                                                         class="form-control-ex dosage-input"
                                                         disabled={med.hasDailyDosages}
                                                     />
-                                                    <button class="daily-dosage-btn" on:click={() => openDailyDosagePopup(i)}>
+                                                    <button 
+                                                        class="daily-dosage-btn" 
+                                                        on:click={() => openDailyDosagePopup(i)} 
+                                                        disabled={med.dosage && med.dosage.trim() !== ''}
+                                                        title={med.dosage && med.dosage.trim() !== '' ? 'Сначала удалите общую дозировку' : 'Настроить дозировку по дням'}
+                                                    >
                                                         Дозировка по дням
                                                     </button>
                                                 {/if}
@@ -443,9 +448,7 @@
                                     <option value="вода для инъекций">Вода для инъекций</option>
                                     <option value="р-р рингер">Раствор Рингера</option>
                                     <option value="р-р рингер-локка">Раствор Рингера-Локка</option>
-                                    <option value="р-р хартман">Раствор Хартмана</option>
-                                    <option value="этиловый спирт">Этиловый спирт</option>
-                                    <option value="пэг">Полиэтиленгликоль (ПЭГ)</option>
+                                    <option value="2% натрия гидрокарбонад (сода) 200 мл">2% натрия гидрокарбонад (сода) 200 мл</option>
                                 </select>
                 
                                 <input 
@@ -499,6 +502,7 @@
         isOpen={isDailyDosagePopupOpen}
         dailyDosages={medicationForm.selectedMedications[currentMedicationIndex]?.dailyDosages || {}}
         baseDosage={medicationForm.selectedMedications[currentMedicationIndex]?.dosage || ''}
+        medicationName={medicationForm.selectedMedications[currentMedicationIndex]?.name || ''}
         on:close={() => isDailyDosagePopupOpen = false}
         on:update={handleDailyDosageUpdate}
     />
@@ -810,6 +814,12 @@
         margin-left: 5px;
         cursor: pointer;
         color: #555;
+    }
+
+    .daily-dosage-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        background-color: #e0e0e0;
     }
 
     .daily-dosage-btn:hover {

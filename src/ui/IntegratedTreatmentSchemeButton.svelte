@@ -1178,11 +1178,6 @@
                                 {#if selectedMedications.length > 0 || selectedProcedures.length > 0}
                                     
                                     {#if selectedMedications.length > 0}
-                                        {#if selectedProcedures.length > 0}
-                                            <div class="procedure-section-divider">
-                                                <h4>Медикаментозное лечение</h4>
-                                            </div>
-                                        {/if}
                                         {#each selectedMedications as medication (medication.id)}
                                             {#each medication.selectedMedications as subMed, subIndex (subMed.id)}
                                                 <div class="schedule-row {!selectedDays[medication.id] || !selectedDays[medication.id][subMed.id] || !Object.values(selectedDays[medication.id][subMed.id] || {}).some(daySet => daySet.size > 0) ? 'error-highlight' : ''}">
@@ -1280,12 +1275,6 @@
                                     {/if}
 
                                     {#if selectedProcedures.length > 0}
-                                        {#if selectedMedications.length > 0}
-                                            <div class="procedure-section-divider">
-                                                <h4>Физиотерапевтические процедуры</h4>
-                                            </div>
-                                        {/if}
-
                                         {#each selectedProcedures as procedure (procedure.id)}
                                             <ProcedureItem 
                                                 procedure={procedure}
@@ -1656,7 +1645,7 @@
         width: max-content;
         height: 20px;
         position: absolute;
-        right: 20px;
+        right: 10px;
         margin: auto;
         text-align: center;
         font-size: 12px;

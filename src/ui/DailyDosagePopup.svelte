@@ -3,9 +3,10 @@
     import { createEventDispatcher, onMount } from 'svelte';
     
     export let isOpen = false;
-    export let dailyDosages = {}; // Object with day -> dosage format
-    export let baseDosage = ''; // Regular dosage from main form
-    
+    export let dailyDosages = {};
+    export let baseDosage = '';
+    export let medicationName = '';
+
     const dispatch = createEventDispatcher();
     let tempDosages = { ...dailyDosages };
     let dayInputs = [];
@@ -60,12 +61,7 @@
         
         // Проверяем, что есть хотя бы одна дозировка
         const hasValidDosages = Object.keys(validDosages).length > 0;
-        
-        if (!hasValidDosages) {
-            alert('Необходимо ввести дозировку хотя бы для одного дня или использовать общую дозировку.');
-            return;
-        }
-        
+                
         // Отправляем обновленные данные родительскому компоненту
         dispatch('update', { 
             dailyDosages: validDosages,
@@ -86,7 +82,7 @@
     <div class="daily-dosage-popup">
         <div class="popup-content">
             <div class="popup-header">
-                <h3>Дозировка по дням</h3>
+                <h3>Дозировка по дням {medicationName ? `- ${medicationName}` : ''}</h3>
                 <button class="close-button" on:click={handleClose}>✕</button>
             </div>
             
