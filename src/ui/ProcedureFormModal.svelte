@@ -1,5 +1,6 @@
 <script>
     import TreatmentModal from './TreatmentModal.svelte';
+    import AutohemotherapyFormModal from './AutohemotherapyFormModal.svelte';
 
     export let isOpen = false;
     export let onClose;
@@ -10,20 +11,34 @@
         { id: 'transair', name: 'Трансаир', timeOnly: true },
         { id: 'laser', name: 'Лазер терапевтический', timeOnly: true },
         { id: 'vlok', name: 'ВЛОК', timeOnly: true },
-        { id: 'electrophoresis', name: 'Электрофорез', timeOnly: false }
+        { id: 'electrophoresis', name: 'Электрофорез', timeOnly: false },
+        { id: 'autohemotherapy', name: 'Аутогемотерапия', timeOnly: false, hasDailyDosages: true }
+
     ];
 
+    let showAutohemotherapyForm = false;
+
+    // Добавим обработчик
+    function openAutohemotherapyForm() {
+        showAutohemotherapyForm = true;
+    }
+
+    // В блоке выбора типа процедуры добавим проверку
+    $: isAutohemotherapySelected = procedureForm.type === 'autohemotherapy';
+
     // Растворители для электрофореза
-    const solutionTypes = [
+    const positiveAgents = [
+        'Карипазим',
+        'Диклофенак',
+        'Лидокаин',
+        'Лидаза',
+        'Никотиновая кислота',
+        'Кальция хлорид',
         'Новокаин',
-        'Эуфиллин',
-        'Анальгин',
-        'Магнезия',
-        'Кальций',
-        'Йод',
-        'Цинк',
-        'Медь'
+        'Магния сульфат'
     ];
+
+    const negativeAgents = ['Эуфиллин'];
 
     // Предустановленные варианты времени
     const presetTimes = [5, 10, 15, 20, 25, 30, 35, 40];
@@ -38,12 +53,28 @@
         polarity: 'положительная',
         hasDiluent: 'нет',
         diluent: {
-            type: solutionTypes[0],
+            type: positiveAgents[0],
             dosage: ''
         },
         comment: '',
         frequency: ''
     };
+
+    // Добавим наблюдатель для автоматического выбора правильного препарата при смене полярности
+    $: {
+        if (procedureForm.type === 'electrophoresis') {
+            if (procedureForm.polarity === 'отрицательная') {
+                procedureForm.diluent.type = negativeAgents[0];
+            } else if (procedureForm.diluent.type === negativeAgents[0]) {
+                // Если переключаемся с отрицательной на положительную, 
+                // а выбран был Эуфиллин - меняем на первый из положительных
+                procedureForm.diluent.type = positiveAgents[0];
+            }
+        }
+    }
+
+    // Добавим реактивную переменную для выбора правильного списка в зависимости от полярности
+    $: availableAgents = procedureForm.polarity === 'положительная' ? positiveAgents : negativeAgents;
 
     $: commentCharsLeft = 30 - (procedureForm.comment ? procedureForm.comment.length : 0);
     $: isCommentLengthLow = commentCharsLeft < 5;
@@ -65,6 +96,10 @@
         (procedureForm.type !== 'electrophoresis' || procedureForm.hasDiluent !== 'да' || procedureForm.diluent.type) &&
         (procedureForm.comment ? procedureForm.comment.length <= 30 : true)
     );
+
+    $: if (isOpen) {
+        resetForm();
+    }
 
     function handleSave() {
         if (!isFormValid) return;
@@ -89,10 +124,19 @@
         };
 
         onSave(procedureData);
+
+        resetForm();
     }
 
     function handleProcedureTypeChange(event) {
         procedureForm.type = event.target.value;
+    
+        if (procedureForm.type === 'autohemotherapy') {
+            // Если выбрана аутогемотерапия, открываем специальную форму
+            openAutohemotherapyForm();
+            // И предотвращаем дальнейшую обработку
+            return;
+        }
         
         // Сбрасываем комментарий при смене типа процедуры
         procedureForm.comment = '';
@@ -122,6 +166,22 @@
             procedureForm.comment = input.value;
         }
     }
+
+    function resetForm() {
+        procedureForm = {
+            type: availableProcedures[0].id,  // Возвращаем к первому типу в списке
+            time: 20,  // Сбрасываем время
+            polarity: 'положительная',  // Сбрасываем полярность
+            hasDiluent: 'нет',  // Сбрасываем настройки растворителя
+            diluent: {
+                type: positiveAgents[0],
+                dosage: ''
+            },
+            comment: '',  // Очищаем комментарий
+            frequency: ''  // Очищаем частоту
+        };
+    }
+
 </script>
 
 <TreatmentModal
@@ -288,7 +348,7 @@
                             bind:value={procedureForm.diluent.type}
                             class="form-control diluent-select"
                         >
-                            {#each solutionTypes as type}
+                            {#each availableAgents as type}
                                 <option value={type}>{type}</option>
                             {/each}
                         </select>
@@ -316,6 +376,20 @@
     </div>
 </TreatmentModal>
 
+<AutohemotherapyFormModal 
+    isOpen={showAutohemotherapyForm}
+    onClose={() => {
+        showAutohemotherapyForm = false;
+        isOpen = true; // Повторно открываем основное окно
+    }}
+    onSave={(data) => {
+        showAutohemotherapyForm = false;
+        // Добавляем флаг форсированного обновления таблицы
+        data.forceUpdate = true;
+        // Передаем данные в родительский компонент
+        onSave(data);
+    }}
+/>
 <style>
     h3 {
         font-size: 21px;

@@ -22,18 +22,28 @@
 
    // Функция для получения иконки типа процедуры
    function getProcedureTypeIcon(type) {
-    switch(type) {
-      case 'transair':
-        return '🧠'; // Иконка для Трансаира
-      case 'laser':
-        return '🔆'; // Иконка для лазерной терапии
-      case 'vlok':
-        return '💉'; // Иконка для ВЛОК
-      case 'electrophoresis':
-        return '⚡'; // Иконка для электрофореза
-      default:
-        return '⚕️'; // Иконка по умолчанию (медицинский символ)
-    }
+      switch(type) {
+          case 'transair':
+              return '🧠'; // Иконка для Трансаира
+          case 'laser':
+              return '🔆'; // Иконка для лазерной терапии
+          case 'vlok':
+              return '💉'; // Иконка для ВЛОК
+          case 'electrophoresis':
+              return '⚡'; // Иконка для электрофореза
+          case 'autohemotherapy':
+              return '🩸'; // Иконка для аутогемотерапии
+          default:
+              return '⚕️'; // Иконка по умолчанию (медицинский символ)
+      }
+  }
+
+  function formatProcedureDisplay(proc) {
+      if (proc.type === 'autohemotherapy') {
+          return `${getProcedureTypeIcon(proc.type)} ${proc.name}`;
+      } else {
+          return `${getProcedureTypeIcon(proc.type)} ${proc.name} ${proc.time} мин`;
+      }
   }
 
 </script>
@@ -69,9 +79,9 @@
 
       {#if hasProcedures}
           {#each scheme.procedures as proc}
-            <div class="medication-details">
-              {getProcedureTypeIcon(proc.type)} {proc.name} {proc.time} мин
-            </div>
+              <div class="medication-details">
+                  {formatProcedureDisplay(proc)}
+              </div>
           {/each}
       {/if}
 

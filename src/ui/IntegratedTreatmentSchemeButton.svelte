@@ -512,12 +512,36 @@
         // Создаем пустое расписание для процедуры
         if (!selectedDays['procedure_' + procedureData.id]) {
             selectedDays['procedure_' + procedureData.id] = {
-                1: new Set() // Для первой недели
+                1: new Set()
             };
         }
         
+        // Если это аутогемотерапия и есть дозировки по дням, 
+        // добавляем эти дни в расписание
+        if (procedureData.type === 'autohemotherapy' && 
+            procedureData.settings && 
+            procedureData.settings.dailyDosages) {
+                
+            const key = 'procedure_' + procedureData.id;
+            Object.keys(procedureData.settings.dailyDosages).forEach(day => {
+                if (!selectedDays[key][1]) {
+                    selectedDays[key][1] = new Set();
+                }
+                selectedDays[key][1].add(parseInt(day));
+            });
+        }
+        
+        // Обновляем реактивную переменную
+        selectedDays = {...selectedDays};
+        
         isProcedureFormOpen = false;
-        setTimeout(equalizeRowHeights, 100);
+        
+        // Если требуется форсированное обновление таблицы
+        if (procedureData.forceUpdate) {
+            setTimeout(equalizeRowHeights, 100);
+        } else {
+            setTimeout(equalizeRowHeights, 100);
+        }
     }
     
     function deleteProcedure(procedureId) {
@@ -545,27 +569,109 @@
     // Переключение дня для процедуры
     function toggleProcedureDay(procedureId, day) {
         const key = 'procedure_' + procedureId;
+        const procedure = selectedProcedures.find(p => p.id === procedureId);
         
-        if (!selectedDays[key]) {
-            selectedDays[key] = {};
-        }
+        // Добавим форсированное обновление в конце
+        const forceUpdate = () => {
+            // Создаем копию массива процедур для триггера реактивности
+            selectedProcedures = [...selectedProcedures];
+            // Обновляем расписание
+            selectedDays = {...selectedDays};
+            validationError = '';
+            // Запускаем перестроение таблицы
+            setTimeout(equalizeRowHeights, 100);
+        };
+
+// Особая обработка для аутогемотерапии с дозировками
+if (procedure && procedure.type === 'autohemotherapy' && 
+    procedure.settings && procedure.settings.dailyDosages) {
+    
+    // Проверяем, выбран ли уже этот день
+    if (!selectedDays[key]) {
+        selectedDays[key] = {
+            1: new Set()
+        };
+    }
+    
+    const dayIsSelected = selectedDays[key][1].has(day);
+    
+    if (dayIsSelected) {
+        // Если день уже выбран, спрашиваем о его удалении
+        const hasDosage = procedure.settings.dailyDosages[day];
         
-        if (!selectedDays[key][1]) {
-            selectedDays[key][1] = new Set();
-        }
-        
-        if (selectedDays[key][1].has(day)) {
+        if (hasDosage) {
+            const confirmed = confirm(`День ${day} имеет дозировки. Хотите удалить этот день из схемы?`);
+            
+            if (!confirmed) {
+                return;
+            }
+            
+            // Удаляем день из расписания и из дозировок
             selectedDays[key][1].delete(day);
+            delete procedure.settings.dailyDosages[day];
+
+            forceUpdate();
         } else {
-            selectedDays[key][1].add(day);
+            // Просто удаляем день из расписания
+            selectedDays[key][1].delete(day);
+
+            forceUpdate();
         }
+    } else {
+        // Добавляем день и предлагаем указать дозировку
+        selectedDays[key][1].add(day);
         
-        // Важно: создаем новую ссылку на объект для триггера реактивности
-        selectedDays = {...selectedDays};
-        validationError = '';
+        // Значения дозировок по умолчанию
+        let bloodDosage = "2 мл";
+        let diluentDosage = procedure.settings.diluent && procedure.settings.diluent.enabled ? "1 мл" : null;
         
-        // После изменения расписания синхронизируем высоту строк
-        //setTimeout(equalizeRowHeights, 50);
+        // Запрашиваем дозировку крови
+        const userBloodDosage = prompt(`Укажите дозировку крови для дня ${day}:`, bloodDosage);
+        if (userBloodDosage) {
+            bloodDosage = userBloodDosage;
+            
+            // Если есть растворитель, запрашиваем его дозировку
+            if (procedure.settings.diluent && procedure.settings.diluent.enabled) {
+                const userDiluentDosage = prompt(`Укажите дозировку ${procedure.settings.diluent.type} для дня ${day}:`, diluentDosage);
+                if (userDiluentDosage) {
+                    diluentDosage = userDiluentDosage;
+                }
+            }
+            
+            // Сохраняем дозировки
+            if (!procedure.settings.dailyDosages) {
+                procedure.settings.dailyDosages = {};
+            }
+            
+            procedure.settings.dailyDosages[day] = {
+                blood: bloodDosage
+            };
+            
+            if (diluentDosage) {
+                procedure.settings.dailyDosages[day].diluent = diluentDosage;
+            }
+        }
+
+        forceUpdate();
+    }
+        } else {
+            // Стандартная логика для других процедур
+            if (!selectedDays[key]) {
+                selectedDays[key] = {};
+            }
+            
+            if (!selectedDays[key][1]) {
+                selectedDays[key][1] = new Set();
+            }
+            
+            if (selectedDays[key][1].has(day)) {
+                selectedDays[key][1].delete(day);
+            } else {
+                selectedDays[key][1].add(day);
+            }
+
+            forceUpdate();
+        }
     }
     
     function toggleDay(medicationId, subMedId, week, day) {
@@ -936,13 +1042,21 @@
                     const procIdParts = proc.id.split('_');
                     const procId = procIdParts.length > 1 ? proc.id : 'procedure_' + proc.id;
                     
+                    const autohemotherapySettings = proc.type === 'autohemotherapy' ? {
+                        diluent: proc.settings.diluent,
+                        doctor: proc.settings.doctor || 'Дулебенец',
+                        dailyDosages: proc.settings.dailyDosages || {}
+                    } : null;
+
                     return {
                         id: procId,
                         type: proc.type,
                         name: proc.name,
                         time: proc.time,
                         isTimeOnly: proc.isTimeOnly,
-                        settings: proc.settings ? {
+                        settings: proc.type === 'autohemotherapy' ? 
+                        autohemotherapySettings : 
+                        proc.settings ? {
                             polarity: proc.settings.polarity,
                             hasDiluent: proc.settings.hasDiluent,
                             diluent: proc.settings.hasDiluent === 'да' && proc.settings.diluent 
