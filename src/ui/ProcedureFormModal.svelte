@@ -58,7 +58,7 @@
         // Для электрофореза нужны дополнительные проверки
         if (procedureForm.type === 'electrophoresis') {
             if (!procedureForm.polarity) return false;
-            // Проверяем растворитель только если он используется
+            // Проверяем раствор только если он используется
             if (procedureForm.hasDiluent === 'да') {
                 if (!procedureForm.diluent.type) return false;
             }
@@ -170,7 +170,7 @@
             
             <!-- Выбор использования растворителя, аналогичный препаратам -->
             <div class="form-group">
-                <label>Использовать растворитель:</label>
+                <label>Использовать раствор:</label>
                 <div class="radio-group">
                     <label class="radio-label">
                         <input 

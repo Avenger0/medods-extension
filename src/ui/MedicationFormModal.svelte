@@ -359,7 +359,7 @@
                 {/if}
                 
                 <div class="diluent-choice">
-                    <label>Использовать растворитель:</label>
+                    <label>Использовать раствор:</label>
                     <label>
                         <input 
                             type="radio" 
@@ -417,7 +417,7 @@
                             class="btn-add-diluent" 
                             on:click={addDiluent}
                         >
-                            + Добавить растворитель
+                            + Добавить раствор
                         </button>
                     </div>
                 {/if}

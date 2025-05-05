@@ -31,7 +31,7 @@
         }
     }
 
-    // Проверяем, есть ли у процедуры растворитель
+    // Проверяем, есть ли у процедуры раствор
     $: hasDiluent = procedure.settings && 
                     procedure.settings.hasDiluent === 'да' && 
                     procedure.settings.diluent && 
@@ -55,7 +55,7 @@
                         </span>
                         {#if hasDiluent}
                             <span class="polarity-info">
-                                Растворитель: {procedure.settings.diluent.type}
+                                Раствор: {procedure.settings.diluent.type}
                             </span>
                         {/if}
                     </div>
