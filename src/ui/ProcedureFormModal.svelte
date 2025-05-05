@@ -456,6 +456,7 @@
         position: relative;
         display: flex;
         align-items: center;
+        max-width: 50%;
     }
 
     .comment-input {

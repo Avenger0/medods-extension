@@ -10,15 +10,31 @@
     export let isOpen = false;
     export let onClose;
     export let medicationForm = {
-        selectedMedications: [], // Инициализируем как пустой массив
+        selectedMedications: [],
         administrationType: 'в/м',
-        ivMethod: 'капельно', // Значение по умолчанию для метода в/в
+        ivMethod: 'капельно',
         hasDiluent: 'нет',
-        diluents: []
+        diluents: [],
+        comment: ''
     };
 
     export let isEditing = false;
     export let onSave;
+
+    const intravenousDiluents = [
+        'Физраствор',
+        'Глюкоза',
+        'Р-р Рингера',
+        'Р-р Рингера-Локка',
+        '2% натрия гидрокарбонад (сода) (200 мл)',
+        'Вода для инъекций'
+    ];
+
+    const intramuscularDiluents = [
+        'Новокаин 0,5% (5 мл)',
+        'Лидокаин 2% (2 мл)',
+        'Вода для инъекций'
+    ];
     
     let isAddMedicationModalOpen = false;
     let isDailyDosagePopupOpen = false;
@@ -32,7 +48,64 @@
 
     let currentMedicationIndex = 0; 
 
+    let commentCharsLeft = 30;
+    let isCommentLengthLow = false;
+
+    let previousAdministrationType = medicationForm.administrationType;
+
     $: medicationsLimitReached = medicationForm?.selectedMedications?.length >= 5;
+   
+    function getAvailableAdministrationTypes(selectedMeds) {
+        // Если нет выбранных препаратов или их несколько, возвращаем все типы
+        if (!selectedMeds || selectedMeds.length !== 1 || !loadedMedications) {
+            return ['в/м', 'в/в'];
+        }
+        
+        // Если выбран только один препарат, ищем его в загруженных препаратах
+        const selectedMed = selectedMeds[0];
+        const medInfo = loadedMedications.find(m => m.id === selectedMed.id);
+        
+        // Если найдена информация о препарате и указаны доступные типы введения
+        if (medInfo && medInfo.types && medInfo.types.length > 0) {
+            return medInfo.types;
+        }
+        
+        // По умолчанию возвращаем все типы
+        return ['в/м', 'в/в'];
+    }
+
+    $: availableAdminTypes = getAvailableAdministrationTypes(medicationForm.selectedMedications || []);
+
+
+    $: {
+        if (medicationForm.selectedMedications && medicationForm.selectedMedications.length === 1) {
+            const availableTypes = getAvailableAdministrationTypes(medicationForm.selectedMedications);
+            // Проверяем, что текущий тип введения доступен
+            if (availableTypes.length > 0 && !availableTypes.includes(medicationForm.administrationType)) {
+                // Устанавливаем новый тип введения без вызова handleAdminTypeChange
+                medicationForm.administrationType = availableTypes[0];
+                
+                // Сбрасываем настройки растворителей, так как меняется тип введения
+                medicationForm.hasDiluent = 'нет';
+                medicationForm.diluents = [];
+                
+                // Обновляем метод в/в
+                if (medicationForm.administrationType === 'в/в' && !medicationForm.ivMethod) {
+                    medicationForm.ivMethod = 'капельно';
+                } else if (medicationForm.administrationType !== 'в/в') {
+                    medicationForm.ivMethod = null;
+                }
+            }
+        }
+    }
+    $: {
+        commentCharsLeft = 30 - (medicationForm.comment ? medicationForm.comment.length : 0);
+        isCommentLengthLow = commentCharsLeft < 5;
+    }
+
+    $: modalTitle = medicationForm.selectedMedications && medicationForm.selectedMedications.length > 1 ? 'Добавление связки препаратов'  : 'Добавление препарата';
+
+    $: saveButtonText = medicationForm.selectedMedications && medicationForm.selectedMedications.length > 1 ? (isEditing ? 'Сохранить изменения' : 'Добавить связку') : (isEditing ? 'Сохранить изменения' : 'Добавить препарат');
 
     // Обновление selectedValues при изменении medicationForm
     $: {
@@ -63,25 +136,57 @@
         }
     }
 
-    $: if (medicationForm) {
-        // При изменении типа введения
-        if (medicationForm.administrationType !== 'в/в') {
-            medicationForm.ivMethod = null; // Сбрасываем метод, если это не в/в
-        } else if (!medicationForm.ivMethod) {
-            medicationForm.ivMethod = 'капельно'; // Устанавливаем по умолчанию, если это в/в
+    // Загружаем лекарства при открытии модального окна
+    $: {
+        if (isOpen && loadedMedications.length === 0) {
+            console.log("Запуск загрузки препаратов");
+            loadMedications();
         }
     }
 
-    // Загружаем лекарства при открытии модального окна
-    $: if (isOpen && loadedMedications.length === 0) {
-        loadMedications();
+    function handleAdminTypeChange(e, newType) {
+
+        // Если выбран тот же тип, который уже был выбран - ничего не делаем
+        if (newType === medicationForm.administrationType) {
+            return;
+        }
+        
+        // Если есть растворители, запрашиваем подтверждение
+        if (medicationForm.hasDiluent === 'да' && medicationForm.diluents.length > 0) {
+            // Меняем тип введения
+            medicationForm.administrationType = newType;
+            // Очищаем растворители
+            medicationForm.diluents = [];
+            // Сбрасываем параметр "использовать раствор" на "нет"
+            medicationForm.hasDiluent = 'нет';
+
+        } else {
+            // Если растворителей нет, просто меняем тип и сбрасываем настройки
+            medicationForm.administrationType = newType;
+            medicationForm.hasDiluent = 'нет';
+        }
+        
+        // Обновляем ivMethod в зависимости от типа введения
+        if (medicationForm.administrationType === 'в/в' && !medicationForm.ivMethod) {
+            medicationForm.ivMethod = 'капельно';
+        } else if (medicationForm.administrationType !== 'в/в') {
+            medicationForm.ivMethod = null;
+        }
     }
-    
+
     function handleMedicationAdded(newMedication) {
         // Добавляем новый препарат в список загруженных препаратов
         loadedMedications = [...loadedMedications, newMedication];
         // После добавления, можно автоматически выбрать этот препарат
         handleSingleMedicationSelect({detail: newMedication});
+    }
+
+    function limitCommentLength(event) {
+        const input = event.target;
+        if (input.value.length > 30) {
+            input.value = input.value.slice(0, 30);
+            medicationForm.comment = input.value;
+        }
     }
 
     async function loadMedications() {
@@ -144,9 +249,16 @@
     );
     
     function addDiluent() {
+        const diluents = medicationForm.administrationType === 'в/в' 
+        ? intravenousDiluents 
+        : intramuscularDiluents;
+    
+        // Берем первый элемент из списка или устанавливаем значение по умолчанию
+        const defaultDiluent = diluents.length > 0 ? diluents[0] : 'физраствор';
+        
         medicationForm.diluents = [
             ...medicationForm.diluents,
-            { id: String(Date.now()), type: 'физраствор', dosage: '' }
+            { id: String(Date.now()), type: defaultDiluent, dosage: '' }
         ];
     }
     
@@ -178,20 +290,45 @@
         }, 10);
     }
 
-    // Функция для фильтрации доступных препаратов
-    // (исключает уже выбранные)
+    $: filteredMedications = isLoading ? [] : getFilteredMedicationOptions();
+
+
     function getFilteredMedicationOptions() {
+        // Если препараты еще не загрузились, возвращаем пустой массив
+        if (!loadedMedications || loadedMedications.length === 0) {
+            return [];
+        }
+        
         // Защита от undefined
         const selectedMeds = medicationForm?.selectedMedications || [];
         
-        const selectedIds = selectedMeds.map(med => med?.id || '');
-        return loadedMedications.filter(med => !selectedIds.includes(med.id));
+        // Создаем массив ID уже выбранных препаратов
+        const selectedIds = selectedMeds
+            .filter(med => med && med.id)
+            .map(med => med.id);
+        
+        // Фильтруем список препаратов, исключая уже выбранные по ID
+        return loadedMedications.filter(med => 
+            !selectedIds.includes(med.id)
+        );
     }
 
     // Обработчик выбора одного препарата
     function handleSingleMedicationSelect(event) {
         if (!event.detail) return;
         
+        const selectedMed = event.detail;
+        
+        // Проверяем, не выбран ли уже препарат с таким же названием
+        if (medicationForm.selectedMedications && 
+            medicationForm.selectedMedications.some(med => med.id === selectedMed.id)) {
+            alert('Этот препарат уже добавлен в связку!');
+            if (selectComponent) {
+                selectComponent.handleClear();
+            }
+            return;
+        }
+
         // Если еще не достигнут лимит
         if (!medicationForm.selectedMedications) {
             medicationForm.selectedMedications = [];
@@ -279,7 +416,7 @@
         <div class="mep-flex">
             <div class="mep-head">
                 <h3>
-                    {isEditing ? 'Редактирование препарата' : 'Добавление препарата'}
+                    {isEditing ? 'Редактирование препарата' : modalTitle}
                 </h3>
                 {#if isLoading}
                     <div class="loading-indicator">Загрузка списка препаратов...</div>
@@ -295,7 +432,7 @@
                             {:else}
                                 <Select 
                                     bind:this={selectComponent}
-                                    items={getFilteredMedicationOptions()}
+                                    items={filteredMedications}
                                     placeholder="Добавить препарат со склада..."
                                     on:select={handleSingleMedicationSelect}
                                     on:clear={handleClear}
@@ -360,31 +497,29 @@
 
                 <div class="administration-type">
                     <label>Способ введения:</label>
-                    {#if medicationForm.medication && medicationForm.medication.id}
-                        {#each loadedMedications.find(m => m.id === medicationForm.medication.id)?.types || ['в/м', 'в/в'] as type}
-                            <label>
-                                <input 
-                                    type="radio" 
-                                    value={type}
-                                    bind:group={medicationForm.administrationType}
-                                > 
-                                {type === 'в/м' ? 'Внутримышечно' : type === 'в/в' ? 'Внутривенно' : type}
-                            </label>
-                        {/each}
-                    {:else}
+                    
+                    <!-- Показываем только доступные типы -->
+                    {#if availableAdminTypes.includes('в/м')}
                         <label>
                             <input 
                                 type="radio" 
+                                name="admin-type"
                                 value="в/м"
-                                bind:group={medicationForm.administrationType}
+                                checked={medicationForm.administrationType === "в/м"}
+                                on:click={(e) => handleAdminTypeChange(e, "в/м")}
                             > 
                             Внутримышечно
                         </label>
+                    {/if}
+                    
+                    {#if availableAdminTypes.includes('в/в')}
                         <label>
                             <input 
                                 type="radio" 
+                                name="admin-type"
                                 value="в/в"
-                                bind:group={medicationForm.administrationType}
+                                checked={medicationForm.administrationType === "в/в"}
+                                on:click={(e) => handleAdminTypeChange(e, "в/в")}
                             > 
                             Внутривенно
                         </label>
@@ -443,12 +578,15 @@
                                     bind:value={diluent.type}
                                     class="form-control-ex diluent-select"
                                 >
-                                    <option value="глюкоза">Глюкоза</option>
-                                    <option value="физраствор">Физраствор</option>
-                                    <option value="вода для инъекций">Вода для инъекций</option>
-                                    <option value="р-р рингер">Раствор Рингера</option>
-                                    <option value="р-р рингер-локка">Раствор Рингера-Локка</option>
-                                    <option value="2% натрия гидрокарбонад (сода) 200 мл">2% натрия гидрокарбонад (сода) 200 мл</option>
+                                    {#if medicationForm.administrationType === 'в/в'}
+                                        {#each intravenousDiluents as type}
+                                            <option value={type}>{type}</option>
+                                        {/each}
+                                    {:else}
+                                        {#each intramuscularDiluents as type}
+                                            <option value={type}>{type}</option>
+                                        {/each}
+                                    {/if}
                                 </select>
                 
                                 <input 
@@ -475,6 +613,31 @@
                         </button>
                     </div>
                 {/if}
+
+                <div class="comment">
+                    <label for="medication-comment">
+                        <span class="info" title="В этом поле можно указать дополнительную информацию о препарате или связке. Например: скорость введения медленно">
+                            <svg fill="#4caf50" width="16" height="16" viewBox="0 0 1920 1920" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M1229.93 594.767c36.644 37.975 50.015 91.328 43.72 142.909-9.128 74.877-30.737 144.983-56.093 215.657-27.129 75.623-54.66 151.09-82.332 226.512-44.263 120.685-88.874 241.237-132.65 362.1-10.877 30.018-18.635 62.072-21.732 93.784-3.376 34.532 21.462 51.526 52.648 36.203 24.977-12.278 49.288-28.992 68.845-48.768 31.952-32.31 63.766-64.776 94.805-97.98 15.515-16.605 30.86-33.397 45.912-50.438 11.993-13.583 24.318-34.02 40.779-42.28 31.17-15.642 55.226 22.846 49.582 49.794-5.39 25.773-23.135 48.383-39.462 68.957l-1.123 1.416a1559.53 1559.53 0 0 0-4.43 5.6c-54.87 69.795-115.043 137.088-183.307 193.977-67.103 55.77-141.607 103.216-223.428 133.98-26.65 10.016-53.957 18.253-81.713 24.563-53.585 12.192-112.798 11.283-167.56 3.333-40.151-5.828-76.246-31.44-93.264-68.707-29.544-64.698-8.98-144.595 6.295-210.45 18.712-80.625 46.8-157.388 75.493-234.619l2.18-5.867 1.092-2.934 2.182-5.87 2.182-5.873c33.254-89.517 67.436-178.676 101.727-267.797 31.294-81.296 62.72-162.537 93.69-243.95 2.364-6.216 5.004-12.389 7.669-18.558l1-2.313c6.835-15.806 13.631-31.617 16.176-48.092 6.109-39.537-22.406-74.738-61.985-51.947-68.42 39.4-119.656 97.992-170.437 156.944l-6.175 7.17c-15.78 18.323-31.582 36.607-47.908 54.286-16.089 17.43-35.243 39.04-62.907 19.07-29.521-21.308-20.765-48.637-3.987-71.785 93.18-128.58 205.056-248.86 350.86-316.783 60.932-28.386 146.113-57.285 225.882-58.233 59.802-.707 116.561 14.29 157.774 56.99Zm92.038-579.94c76.703 29.846 118.04 96.533 118.032 190.417-.008 169.189-182.758 284.908-335.53 212.455-78.956-37.446-117.358-126.202-98.219-227.002 26.494-139.598 183.78-227.203 315.717-175.87Z" fill-rule="evenodd"/>
+                            </svg>
+                        </span>
+                        Общий комментарий
+                    </label>
+                    <div class="comment-input-container">
+                        <input 
+                            type="text" 
+                            id="medication-comment" 
+                            class="form-control comment-input" 
+                            bind:value={medicationForm.comment}
+                            placeholder="Введите комментарий..."
+                            maxlength="30"
+                            on:input={limitCommentLength}
+                        />
+                        <div class="comment-char-counter {isCommentLengthLow ? 'low-chars' : ''}">
+                            {commentCharsLeft}
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="button-row">
                 <button 
@@ -488,7 +651,7 @@
                     disabled={!isFormValid}
                     on:click={handleSave}
                 >
-                    {isEditing ? 'Сохранить изменения' : 'Добавить препарат'}
+                    {saveButtonText}
                 </button>
             </div>             
         </div>
@@ -551,7 +714,8 @@
     
     .administration-type label:first-of-type,
     .diluent-choice label:first-of-type,
-    .iv-method label:first-of-type {
+    .iv-method label:first-of-type,
+    .comment label:first-of-type {
         font-size: 15px;
         color: gray;
         font-style: italic;
@@ -585,6 +749,7 @@
         border: none;
         width: 24px;
         height: 24px;
+        line-height: 24px;
         border-radius: 50%;
         font-size: 16px !important;
         display: flex;
@@ -853,6 +1018,42 @@
         border-radius: 4px;
         font-size: 12px;
         border: 1px solid #d1edf3;
+    }
+
+    .comment{
+        border-top: 1px solid rgba(0, 0, 0, .1);
+        padding: 10px 0px;
+    }
+
+    .comment-input-container {
+        position: relative;
+        display: flex;
+        align-items: center;
+        max-width: 50%;
+    }
+
+    .comment-input {
+        padding-right: 40px;
+    }
+
+    .comment-char-counter {
+        position: absolute;
+        right: 10px;
+        font-size: 12px;
+        color: #6c757d;
+        background-color: #f8f9fa;
+        padding: 2px 5px;
+        border-radius: 3px;
+    }
+
+    .low-chars {
+        color: #dc3545;
+        font-weight: bold;
+    }
+
+    label[for="medication-comment"]{
+        display: flex;
+        align-items: center;
     }
 
     :global(.mep-medication-select) {

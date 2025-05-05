@@ -380,10 +380,11 @@
                             name: medNameWithDosage.join(' + ')
                         },
                         administrationType: formData.administrationType,
-                        ivMethod: formData.administrationType === 'в/в' ? formData.ivMethod : null, // Добавляем ivMethod
-                        dosage: "", // Общее поле дозировки не используем
+                        ivMethod: formData.administrationType === 'в/в' ? formData.ivMethod : null,
+                        dosage: "",
                         hasDiluent: formData.hasDiluent,
-                        diluents: diluentsList // Используем очищенный список
+                        diluents: diluentsList,
+                        comment: formData.comment || ''
                     };
                 }
                 return med;
@@ -917,7 +918,6 @@
                     administrationType: med.administrationType,
                     ivMethod: med.ivMethod,
                     diluents: med.diluents ? med.diluents.map(d => ({...d})) : [],
-                    // Добавляем информацию о всех препаратах в коктейле
                     selectedMedications: med.selectedMedications ? med.selectedMedications.map(subMed => ({
                         id: subMed.id,
                         name: subMed.name,
@@ -928,7 +928,8 @@
                         concentration: subMed.concentration || '',
                         hasDailyDosages: subMed.hasDailyDosages || false,
                         dailyDosages: subMed.dailyDosages || {}
-                    })) : []
+                    })) : [],
+                    comment: med.comment || ''
                 })),
                 procedures: selectedProcedures.map(proc => {
                     // Получаем фактический ID, используемый в расписании
