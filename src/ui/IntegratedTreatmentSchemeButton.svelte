@@ -429,6 +429,43 @@
         selectedMedications.forEach(med => {
             if (med.selectedMedications) {
                 med.selectedMedications.forEach(subMed => {
+                    // Если у препарата есть дозировки по дням
+                    if (subMed.hasDailyDosages && subMed.dailyDosages) {
+                        // Очищаем существующие выбранные дни для этого подпрепарата
+                        if (selectedDays[med.id] && selectedDays[med.id][subMed.id]) {
+                            // Удаляем все выбранные дни
+                            for (const week in selectedDays[med.id][subMed.id]) {
+                                selectedDays[med.id][subMed.id][week].clear();
+                            }
+                        }
+
+                        // Добавляем только дни, для которых указаны дозировки
+                        Object.keys(subMed.dailyDosages).forEach(dayStr => {
+                            const day = parseInt(dayStr, 10);
+                            if (!isNaN(day)) {
+                                // Создаем структуру, если необходимо
+                                if (!selectedDays[med.id]) {
+                                    selectedDays[med.id] = {};
+                                }
+                                if (!selectedDays[med.id][subMed.id]) {
+                                    selectedDays[med.id][subMed.id] = {};
+                                }
+                                if (!selectedDays[med.id][subMed.id][1]) {
+                                    selectedDays[med.id][subMed.id][1] = new Set();
+                                }
+                                
+                                // Автоматически выбираем день
+                                selectedDays[med.id][subMed.id][1].add(day);
+                            }
+                        });
+                    }
+                });
+            }
+        });
+
+        selectedMedications.forEach(med => {
+            if (med.selectedMedications) {
+                med.selectedMedications.forEach(subMed => {
                     if (subMed.hasDailyDosages && subMed.dailyDosages) {
                         // Для каждого дня с дозировкой
                         Object.keys(subMed.dailyDosages).forEach(dayStr => {
