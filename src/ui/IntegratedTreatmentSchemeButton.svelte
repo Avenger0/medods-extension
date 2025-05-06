@@ -1619,7 +1619,7 @@ if (procedure && procedure.type === 'autohemotherapy' &&
         background-color: #f0f0f0;
         text-align: center;
         position: sticky;
-        top: 0;
+        top: -20px;
         z-index: 2; /* Чтобы заголовок был над содержимым при прокрутке */
     }
 
@@ -1711,6 +1711,7 @@ if (procedure && procedure.type === 'autohemotherapy' &&
         display: flex;
         justify-content: space-between;
         margin-top: 10px;
+        margin-bottom: 10px;
     }
 
     .btn-continue {
