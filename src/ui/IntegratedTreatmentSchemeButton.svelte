@@ -320,16 +320,12 @@
             administrationType: medication.administrationType,
             ivMethod: medication.ivMethod || (medication.administrationType === 'в/в' ? 'капельно' : null),
             hasDiluent: hasDiluent,
-            diluents: diluentsList
+            diluents: diluentsList,
+            comment: medication.comment || ''
         };
         
         editingMedicationId = medication.id;
         isMedicationFormOpen = true;
-
-            // Добавим логирование для отладки
-        console.log('Редактирование препарата:', medication.id);
-        console.log('Выбранные препараты:', medsToPut);
-        console.log('Дозировки по дням:', medsToPut.map(m => ({id: m.id, hasDailyDosages: m.hasDailyDosages, dailyDosages: m.dailyDosages})));
     }
 
     // Удаление препарата
@@ -419,7 +415,8 @@
                 ivMethod: formData.administrationType === 'в/в' ? formData.ivMethod : null, // Добавляем ivMethod
                 dosage: "", // Общее поле дозировки не используем
                 hasDiluent: formData.hasDiluent,
-                diluents: diluentsList
+                diluents: diluentsList,
+                comment: formData.comment || ''
             };
             
             selectedMedications = [...selectedMedications, newMedication];
@@ -759,7 +756,8 @@ if (procedure && procedure.type === 'autohemotherapy' &&
                 dosage: med.dosage,
                 hasDiluent: med.diluents && med.diluents.length > 0 ? 'да' : 'нет',
                 diluents: med.diluents ? med.diluents.map(d => ({...d})) : [],
-                selectedMedications: selectedMeds
+                selectedMedications: selectedMeds,
+                comment: med.comment || ''
             };
         });
         
@@ -770,6 +768,8 @@ if (procedure && procedure.type === 'autohemotherapy' &&
                 name: proc.name,
                 time: proc.time,
                 isTimeOnly: proc.isTimeOnly === undefined ? (proc.type !== 'electrophoresis') : proc.isTimeOnly,
+                comment: proc.comment || '',
+                frequency: proc.frequency,
                 settings: proc.settings ? {...proc.settings} : null
             }));
         } else {
@@ -1044,7 +1044,7 @@ if (procedure && procedure.type === 'autohemotherapy' &&
                     
                     const autohemotherapySettings = proc.type === 'autohemotherapy' ? {
                         diluent: proc.settings.diluent,
-                        doctor: proc.settings.doctor || 'Дулебенец',
+                        doctor: proc.settings.doctor || '',
                         dailyDosages: proc.settings.dailyDosages || {}
                     } : null;
 
@@ -1054,6 +1054,8 @@ if (procedure && procedure.type === 'autohemotherapy' &&
                         name: proc.name,
                         time: proc.time,
                         isTimeOnly: proc.isTimeOnly,
+                        comment: proc.comment || '',
+                        frequency: proc.frequency,
                         settings: proc.type === 'autohemotherapy' ? 
                         autohemotherapySettings : 
                         proc.settings ? {
@@ -1311,6 +1313,10 @@ if (procedure && procedure.type === 'autohemotherapy' &&
                                                                         {#if medication.administrationType === 'в/в' && medication.ivMethod}
                                                                             ({medication.ivMethod})
                                                                         {/if}
+
+                                                                        {#if medication.comment && medication.comment.trim() !== ''}
+                                                                            <span class="medication-comment"> • {medication.comment}</span>
+                                                                        {/if}
                                                                     </div>
                                                                 {:else}
                                                                     <span class="sub-medication-cocktail-name">• {subMed.name} {subMed.dosage ? `(${subMed.dosage})` : ''}</span>
@@ -1369,6 +1375,10 @@ if (procedure && procedure.type === 'autohemotherapy' &&
                                                             {medication.administrationType}
                                                             {#if medication.administrationType === 'в/в' && medication.ivMethod}
                                                                 ({medication.ivMethod})
+                                                            {/if}
+
+                                                            {#if medication.comment && medication.comment.trim() !== ''}
+                                                                <span class="medication-comment"> • {medication.comment}</span>
                                                             {/if}
                                                         </div>
                                                         <div class="medication-actions">
@@ -1845,6 +1855,13 @@ if (procedure && procedure.type === 'autohemotherapy' &&
         bottom: 0;
         right: 0;
         padding: 0px 2px;
+    }
+
+    .medication-comment {
+        font-style: italic;
+        font-size: 0.9em;
+        color: #666;
+        margin-left: 5px;
     }
 
     @keyframes spin {
