@@ -211,6 +211,40 @@
         }
     }
 
+    function selectAllDaysForMedication(medication) {
+        // Проверяем, есть ли у препарата подпрепараты (коктейль)
+        if (medication.selectedMedications && medication.selectedMedications.length > 0) {
+            // Для каждого подпрепарата в коктейле
+            medication.selectedMedications.forEach(subMed => {
+                // Пропускаем препараты с дозировкой по дням
+                if (subMed.hasDailyDosages) {
+                    return;
+                }
+                
+                if (!selectedDays[medication.id]) {
+                    selectedDays[medication.id] = {};
+                }
+                
+                if (!selectedDays[medication.id][subMed.id]) {
+                    selectedDays[medication.id][subMed.id] = {};
+                }
+                
+                if (!selectedDays[medication.id][subMed.id][1]) {
+                    selectedDays[medication.id][subMed.id][1] = new Set();
+                }
+                
+                // Выбираем первые 10 дней
+                for (let day = 1; day <= 10; day++) {
+                    selectedDays[medication.id][subMed.id][1].add(day);
+                }
+            });
+        }
+        
+        // Триггерим реактивность
+        selectedDays = {...selectedDays};
+        validationError = '';
+    }
+
     // Функция для показа модального окна с предупреждением
     function showOutdatedVersionModal() {
         const modalElement = document.createElement('div');
@@ -1326,6 +1360,10 @@ if (procedure && procedure.type === 'autohemotherapy' &&
                                                             <!-- Если это единственный препарат, добавляем информацию о введении здесь -->
                                                             {#if medication.selectedMedications.length === 1}
                                                                 <div class="medication-actions">
+                                                                    <button class="btn-select-all-days" title="Выделить все дни (10)" 
+                                                                            on:click={() => selectAllDaysForMedication(medication)}>
+                                                                        📅
+                                                                    </button>
                                                                     <button class="btn-edit-medication" on:click={() => editMedication(medication)}>
                                                                         ✏️
                                                                     </button>
@@ -1382,6 +1420,10 @@ if (procedure && procedure.type === 'autohemotherapy' &&
                                                             {/if}
                                                         </div>
                                                         <div class="medication-actions">
+                                                            <button class="btn-select-all-days" title="Выделить все дни (10) для всех препаратов" 
+                                                                    on:click={() => selectAllDaysForMedication(medication)}>
+                                                                📅
+                                                            </button>
                                                             <button class="btn-edit-medication" on:click={() => editMedication(medication)}>
                                                                 ✏️
                                                             </button>
@@ -1754,7 +1796,7 @@ if (procedure && procedure.type === 'autohemotherapy' &&
 
     .administration-cell {
         grid-column: 1;
-        padding: 5px 70px 5px 40px;
+        padding: 5px 120px 5px 40px;
         border-right: 1px solid #ddd;
         color: #555;
         display: flex;
@@ -1862,6 +1904,21 @@ if (procedure && procedure.type === 'autohemotherapy' &&
         font-size: 0.9em;
         color: #666;
         margin-left: 5px;
+    }
+
+    .btn-select-all-days {
+        background: none;
+        border: none;
+        color: #3FAECA;
+        font-size: 16px;
+        cursor: pointer;
+        padding: 2px 5px;
+        border-radius: 3px;
+        font-style: normal;
+    }
+
+    .btn-select-all-days:hover {
+        background-color: #e6f7fb;
     }
 
     @keyframes spin {

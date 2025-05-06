@@ -416,7 +416,7 @@
         <div class="mep-flex">
             <div class="mep-head">
                 <h3>
-                    {isEditing ? 'Редактирование препарата' : modalTitle}
+                    {isEditing ? 'Редактирование' : modalTitle}
                 </h3>
                 {#if isLoading}
                     <div class="loading-indicator">Загрузка списка препаратов...</div>
