@@ -14,7 +14,9 @@
         dosage: '',
         type: {
             intravenous: false,
-            intramuscular: false
+            intramuscular: false,
+            sc: false,
+            other: false
         },
         vidalLink: ''
     };
@@ -26,7 +28,7 @@
                 newMedication.shortName.trim() !== '' && 
                 newMedication.activeIngredient.trim() !== '' && // Добавляем проверку нового поля
                 newMedication.dosage.trim() !== '' && 
-                (newMedication.type.intravenous || newMedication.type.intramuscular);
+                (newMedication.type.intravenous || newMedication.type.intramuscular || newMedication.type.sc || newMedication.type.other);
 
     async function handleSubmit() {
         if (!isFormValid) return;
@@ -39,6 +41,8 @@
             const types = [];
             if (newMedication.type.intravenous) types.push('в/в');
             if (newMedication.type.intramuscular) types.push('в/м');
+            if (newMedication.type.sc) types.push('п/к');
+            if (newMedication.type.other) types.push('др.');
             
             const medicationData = {
                 fullName: newMedication.fullName,
@@ -54,14 +58,16 @@
             if (result && result.success) {
                 // Добавляем новый препарат в список и закрываем модальное окно
                 if (typeof onMedicationAdded === 'function') {
-                    onMedicationAdded({
+                    let newMed = {
                         id: result.id || Date.now(),
                         fullName: newMedication.fullName,
                         shortName: newMedication.shortName,
-                        type: types,
+                        types: types,
                         value: result.id || Date.now(),
                         label: newMedication.fullName
-                    });
+                    };
+
+                    onMedicationAdded(newMed);
                 }
                 onClose();
             } else {
@@ -154,8 +160,22 @@
                         />
                         Внутримышечно (в/м)
                     </label>
+                    <label class="checkbox-label">
+                        <input 
+                            type="checkbox" 
+                            bind:checked={newMedication.type.sc}
+                        />
+                        Подкожно (п/к)
+                    </label>
+                    <label class="checkbox-label">
+                        <input 
+                            type="checkbox" 
+                            bind:checked={newMedication.type.other}
+                        />
+                        Другое (др.)
+                    </label>
                 </div>
-                {#if !newMedication.type.intravenous && !newMedication.type.intramuscular}
+                {#if !newMedication.type.intravenous && !newMedication.type.intramuscular && !newMedication.type.sc && !newMedication.type.other}
                     <small class="error-text">Выберите хотя бы один способ введения</small>
                 {/if}
             </div>

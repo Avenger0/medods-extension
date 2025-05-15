@@ -17,10 +17,44 @@
     ];
 
     let showAutohemotherapyForm = false;
+    let wasAutohemotherapySelected = false;
+
+    // Функция, вызываемая при закрытии формы аутогемотерапии
+    function handleAutohemotherapyClose() {
+        showAutohemotherapyForm = false;
+        
+        // Полный сброс основной формы перед повторным открытием
+        resetForm();
+        
+        // Сбрасываем флаг выбора аутогемотерапии
+        wasAutohemotherapySelected = false;
+        
+        // Повторно открываем основную форму
+        isOpen = true;
+    }
+
+    // Функция для обработки сохранения аутогемотерапии
+    function handleAutohemotherapySave(data) {
+        showAutohemotherapyForm = false;
+        
+        // Добавляем флаг форсированного обновления таблицы
+        data.forceUpdate = true;
+        
+        // Сбрасываем флаг выбора аутогемотерапии
+        wasAutohemotherapySelected = false;
+        
+        // Сбрасываем форму для следующего использования
+        resetForm();
+        
+        // Передаем данные в родительский компонент
+        onSave(data);
+    }
 
     // Добавим обработчик
     function openAutohemotherapyForm() {
         showAutohemotherapyForm = true;
+        showAutohemotherapyForm = true;
+        isOpen = false;
     }
 
     // В блоке выбора типа процедуры добавим проверку
@@ -133,6 +167,7 @@
     
         if (procedureForm.type === 'autohemotherapy') {
             // Если выбрана аутогемотерапия, открываем специальную форму
+            wasAutohemotherapySelected = true;
             openAutohemotherapyForm();
             // И предотвращаем дальнейшую обработку
             return;
@@ -168,18 +203,51 @@
     }
 
     function resetForm() {
-        procedureForm = {
-            type: availableProcedures[0].id,  // Возвращаем к первому типу в списке
-            time: 20,  // Сбрасываем время
-            polarity: 'положительная',  // Сбрасываем полярность
-            hasDiluent: 'нет',  // Сбрасываем настройки растворителя
-            diluent: {
-                type: positiveAgents[0],
-                dosage: ''
-            },
-            comment: '',  // Очищаем комментарий
-            frequency: ''  // Очищаем частоту
-        };
+        // Если была выбрана аутогемотерапия, важно убедиться, что мы полностью сбрасываем тип
+        if (wasAutohemotherapySelected) {
+            procedureForm = {
+                type: availableProcedures[0].id,  // Устанавливаем первый тип, а не текущий
+                time: 20,
+                polarity: 'положительная',
+                hasDiluent: 'нет',
+                diluent: {
+                    type: positiveAgents[0],
+                    dosage: ''
+                },
+                comment: '',
+                frequency: ''
+            };
+            
+            // Обновляем реактивные переменные вручную
+            selectedProcedure = availableProcedures.find(p => p.id === procedureForm.type);
+            isTimeOnly = selectedProcedure?.timeOnly || false;
+            isLaserSelected = procedureForm.type === 'laser';
+            isVLOKSelected = procedureForm.type === 'vlok';
+        } else {
+            // Стандартный сброс формы
+            procedureForm = {
+                type: availableProcedures[0].id,
+                time: 20,
+                polarity: 'положительная',
+                hasDiluent: 'нет',
+                diluent: {
+                    type: positiveAgents[0],
+                    dosage: ''
+                },
+                comment: '',
+                frequency: ''
+            };
+            
+            // Обновляем реактивные переменные вручную
+            selectedProcedure = availableProcedures.find(p => p.id === procedureForm.type);
+            isTimeOnly = selectedProcedure?.timeOnly || false;
+            isLaserSelected = procedureForm.type === 'laser';
+            isVLOKSelected = procedureForm.type === 'vlok';
+        }
+    }
+
+    $: if (!showAutohemotherapyForm && wasAutohemotherapySelected) {
+        resetForm();
     }
 
 </script>
@@ -317,7 +385,7 @@
             
             <!-- Выбор использования растворителя, аналогичный препаратам -->
             <div class="form-group">
-                <label>Использовать раствор:</label>
+                <label>Добавить препарат:</label>
                 <div class="radio-group">
                     <label class="radio-label">
                         <input 
@@ -378,17 +446,8 @@
 
 <AutohemotherapyFormModal 
     isOpen={showAutohemotherapyForm}
-    onClose={() => {
-        showAutohemotherapyForm = false;
-        isOpen = true; // Повторно открываем основное окно
-    }}
-    onSave={(data) => {
-        showAutohemotherapyForm = false;
-        // Добавляем флаг форсированного обновления таблицы
-        data.forceUpdate = true;
-        // Передаем данные в родительский компонент
-        onSave(data);
-    }}
+    onClose={handleAutohemotherapyClose}
+    onSave={handleAutohemotherapySave}
 />
 <style>
     h3 {

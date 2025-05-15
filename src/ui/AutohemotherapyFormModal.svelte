@@ -318,6 +318,7 @@
         font-weight: bold;
         border-bottom: 1px solid #ddd;
         padding: 8px;
+        gap: 15px;
     }
     
     .dosage-row {

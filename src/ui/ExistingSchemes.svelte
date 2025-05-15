@@ -49,10 +49,10 @@
     h2 {
       margin-top: 0;
       color: var(--title-color, #333);
-      font-size: 1.2rem;
       margin-bottom: 15px;
       border-bottom: 1px solid var(--border-color, #e9ecef);
       padding-bottom: 10px;
+      font-size: 16px;
     }
     
     .schemes-list {
@@ -64,10 +64,12 @@
         padding-right: 5px;
     }
     .no-schemes {
-      font-style: italic;
-      color: #6c757d;
-      text-align: center;
-      padding: 15px 0;
+        font-style: italic;
+        color: #6c757d;
+        text-align: center;
+        padding: 15px 0;
+        font-size: 15px;
+        opacity: 0.6;
     }
     .loading-indicator {
         padding: 15px;

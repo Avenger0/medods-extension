@@ -1458,7 +1458,7 @@ if (procedure && procedure.type === 'autohemotherapy' &&
                                     {/if}
 
                                 {:else}
-                                    <p class="empty">Пока назначений нет</p>
+                                    <p class="empty">Пусто</p>
                                 {/if}
 
                             </div>
@@ -1547,9 +1547,16 @@ if (procedure && procedure.type === 'autohemotherapy' &&
     }
 
     .empty{
+        font-style: italic;
+        color: #6c757d;
         text-align: center;
-        font-size: 18px;
-        padding: 15px;
+        padding: 15px 0;
+        font-size: 15px;
+        opacity: 0.6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 500px;
     }
 
     .treatment-scheme-button {
@@ -1560,6 +1567,8 @@ if (procedure && procedure.type === 'autohemotherapy' &&
         border-radius: var(--border-radius, 4px);
         cursor: pointer;
         transition: opacity 0.2s ease;
+        width: 170px;
+        font-size: 15px;
     }
 
     .treatment-scheme-button:hover {
