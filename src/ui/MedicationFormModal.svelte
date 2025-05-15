@@ -5,6 +5,7 @@
     import TreatmentModal from './TreatmentModal.svelte';
     import AddMedicationModal from './AddMedicationModal.svelte';
     import DailyDosagePopup from './DailyDosagePopup.svelte';
+    import { getRouteTypeByShort } from '../utils/routeTypes.js';
 
     export let serviceId;
     export let isOpen = false;
@@ -400,6 +401,18 @@
         });
     }
 
+    function getRouteClass(type) {
+        const routeType = getRouteTypeByShort(type);
+        return routeType ? routeType.id : 'unknown';
+    }
+
+    function getRouteTooltip(type) {
+        const routeType = getRouteTypeByShort(type);
+        if (routeType) {
+            return `${routeType.name}: ${routeType.description}`;
+        }
+        return 'Тип введения не указан';
+    }
 </script>
 
 <TreatmentModal
@@ -411,6 +424,7 @@
     height="100%"
     overlayAlign="right"
     overlayPadding="0 11% 0 0"
+    confirmBeforeClose={true}
 >
     <div class="modal-grid">
         <div class="mep-flex">
@@ -441,7 +455,25 @@
                                     isSearchable={true}
                                     value={null}
                                     class="mep-medication-select"
+                                    let:item
                                 >
+                                    <div class="medication-item-wrapper" slot="item" let:item>
+                                        <div class="medication-item-details">
+                                            <div class="medication-full-name" title={item.fullName}>{item.label}</div>
+                                        </div>
+                                        <div class="medication-routes">
+                                            {#if item.types && item.types.length > 0}
+                                                {#each item.types as type}
+                                                    <div 
+                                                        class="route-badge route-{getRouteClass(type)}" 
+                                                        title={getRouteTooltip(type)}
+                                                    >
+                                                        {type}
+                                                    </div>
+                                                {/each}
+                                            {/if}
+                                        </div>
+                                    </div>
                                     <div class="empty" slot="empty">
                                         Препарат не найден, 
                                         <a href="#" on:click|preventDefault={() => isAddMedicationModalOpen = true} class="add-link">
@@ -522,6 +554,32 @@
                                 on:click={(e) => handleAdminTypeChange(e, "в/в")}
                             > 
                             Внутривенно
+                        </label>
+                    {/if}
+
+                    {#if availableAdminTypes.includes('п/к')}
+                        <label>
+                            <input 
+                                type="radio" 
+                                name="admin-type"
+                                value="п/к"
+                                checked={medicationForm.administrationType === "п/к"}
+                                on:click={(e) => handleAdminTypeChange(e, "п/к")}
+                            > 
+                            Подкожно
+                        </label>
+                    {/if}
+
+                    {#if availableAdminTypes.includes('др.')}
+                        <label>
+                            <input 
+                                type="radio" 
+                                name="admin-type"
+                                value="др."
+                                checked={medicationForm.administrationType === "др."}
+                                on:click={(e) => handleAdminTypeChange(e, "др.")}
+                            > 
+                            Другое
                         </label>
                     {/if}
                 </div>
@@ -840,7 +898,6 @@
     .selected-medications {
         display: flex;
         flex-direction: column;
-        gap: 10px;
         margin-bottom: 15px;
     }
 
@@ -1056,6 +1113,72 @@
         align-items: center;
     }
 
+    .medication-item-wrapper {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .medication-item-details {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: left;
+    }
+
+    .medication-routes {
+        display: flex;
+        gap: 5px;
+        align-items: center;
+        justify-content: left;
+        margin-left: 15px;
+    }
+
+    .route-badge {
+        width: 40px;
+        height: 40px;
+        display: block;
+        border-radius: 3px;
+        font-size: 12px;
+        font-weight: 500;
+        text-align: center;
+    }
+
+    /* Внутривенно */
+    .route-badge.route-iv {
+        background-color: #e3f2fd;
+        color: #0d47a1;
+        border: 1px solid #bbdefb;
+    }
+
+    /* Внутримышечно */
+    .route-badge.route-im {
+        background-color: #e8f5e9;
+        color: #1b5e20;
+        border: 1px solid #c8e6c9;
+    }
+
+    /* Подкожно */
+    .route-badge.route-sc {
+        background-color: #fff3e0;
+        color: #e65100;
+        border: 1px solid #ffe0b2;
+    }
+
+    /* Другое */
+    .route-badge.route-other {
+        background-color: #f3e5f5;
+        color: #6a1b9a;
+        border: 1px solid #e1bee7;
+    }
+
+    /* Неизвестный тип */
+    .route-badge.route-unknown {
+        background-color: #f5f5f5;
+        color: #757575;
+        border: 1px solid #e0e0e0;
+    }
+
     :global(.mep-medication-select) {
         --value-container-padding: 12px 10px; /* Измените на нужные значения */
     }
@@ -1077,7 +1200,11 @@
     }
     
     :global(.medication-full-name) {
-        font-size: 12px;
+        max-width: 490px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 16px;
+        color: #555;
         color: #6c757d;
     }
     

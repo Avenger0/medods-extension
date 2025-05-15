@@ -7,16 +7,13 @@
     export let onSave;
     
     // Константы
-    const bloodDiluents = ['Глюконат кальция', 'Без разведения'];
+    const bloodDiluents = ['Глюконат кальция'];
     const bloodDosages = Array.from({length: 10}, (_, i) => `${i + 1} мл`);
     const diluentDosages = Array.from({length: 6}, (_, i) => `${i} мл`);
     
     // Начальное состояние
     let autohemotherapy = {
-        diluent: {
-            type: 'Глюконат кальция',
-            enabled: true
-        },
+        diluent: '',
         doctor: 'Дулебенец',
         dailyDosages: {}
     };
@@ -37,7 +34,7 @@
         autohemotherapy = {
             diluent: {
                 type: 'Глюконат кальция',
-                enabled: true
+                enabled: false
             },
             doctor: '',
             dailyDosages: {}
