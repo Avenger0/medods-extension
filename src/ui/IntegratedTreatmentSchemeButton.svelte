@@ -1320,7 +1320,7 @@ if (procedure && procedure.type === 'autohemotherapy' &&
                             <div class="schedule-table" class:ready={tableReady}>
                                 <!-- Заголовки дней -->
                                 <div class="schedule-header">
-                                    <div class="medication-column">Препарат / День</div>
+                                    <div class="medication-column">Процедура / День</div>
                                     {#each [1,2,3,4,5,6,7,8,9,10,11,12,13,14] as day}
                                         <div class="day-header">{day}</div>
                                     {/each}
