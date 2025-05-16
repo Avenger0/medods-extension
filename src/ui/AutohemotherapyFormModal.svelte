@@ -2,8 +2,8 @@
 <script>
     import TreatmentModal from './TreatmentModal.svelte';
     import { medicationService } from '../utils/api.js';
-    import { onMount } from 'svelte';
 
+    export let serviceId;
     export let isOpen = false;
     export let onClose;
     export let onSave;
@@ -16,7 +16,7 @@
 
     async function loadBloodDiluents() {
         try {
-            const autohemoResult = await medicationService.getDiluentsByType('autohemo');
+            const autohemoResult = await medicationService.getDiluentsByType('autohemo', serviceId);
             if (autohemoResult && autohemoResult.diluents) {
                 bloodDiluents = autohemoResult.diluents.autohemo || [];
             }

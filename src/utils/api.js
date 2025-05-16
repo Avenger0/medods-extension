@@ -121,15 +121,18 @@ export const medicationService = {
     },
 
     // Новый метод для получения растворителей
-    getDiluentsByType: async (type) => {
+    getDiluentsByType: async (type, serviceId) => {
         return apiClient.cachedRequest("getDiluentsByType", {
-            type: type 
+            type: type,
+            serviceId: serviceId
         });
     },
 
     // Общий метод для получения всех типов растворителей сразу
-    getAllDiluentsTypes: async () => {
-        return apiClient.cachedRequest("getAllDiluentsTypes", {});
+    getAllDiluentsTypes: async (serviceId) => {
+        return apiClient.cachedRequest("getAllDiluentsTypes", {
+            serviceId: serviceId
+        });
     },
 
     /**

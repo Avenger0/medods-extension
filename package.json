@@ -1,6 +1,6 @@
 {
   "name": "svelte-extension",
-  "version": "2025.05.06",
+  "version": "2025.05.16",
   "type": "module",
   "scripts": {
     "build": "node scripts/update-version.js && vite build --config vite.config.mjs",

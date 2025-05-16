@@ -4,6 +4,7 @@
     import { medicationService } from '../utils/api.js';
     import { onMount } from 'svelte';
 
+    export let serviceId;
     export let isOpen = false;
     export let onClose;
     export let onSave;
@@ -71,7 +72,7 @@
 
     async function loadElectroAgents() {
         try {
-            const electroResult = await medicationService.getAllDiluentsTypes();
+            const electroResult = await medicationService.getAllDiluentsTypes(serviceId);
             if (electroResult && electroResult.diluents) {
                 positiveAgents = electroResult.diluents.electro_positive || [];
                 negativeAgents = electroResult.diluents.electro_negative || [];
@@ -455,6 +456,8 @@
     isOpen={showAutohemotherapyForm}
     onClose={handleAutohemotherapyClose}
     onSave={handleAutohemotherapySave}
+    serviceId={serviceId}
+
 />
 <style>
     h3 {

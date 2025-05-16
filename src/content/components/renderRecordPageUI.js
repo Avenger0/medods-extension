@@ -221,7 +221,7 @@ export function renderUIForRecordPage() {
   
   state.log('success', 'Интервал установлен, ID:', state.intervalId);
   
-  // Возвращаем функцию очистки
+  // Важно: возвращаем функцию очистки
   return cleanup;
 }
 

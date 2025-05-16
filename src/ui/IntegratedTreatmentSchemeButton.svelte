@@ -219,11 +219,12 @@
             
             // Если версия актуальна или проверка не выполнена, открываем модальное окно
             if (!isVersionOutdated) {
+                isButtonLoading = false;
                 isModalOpen = true;
-                await checkDiagnosis();
                 
                 if (serviceId) {
                     loadSchematics();
+                    await checkDiagnosis();
                 }
             } else {
                 // Показываем модальное окно с предупреждением об устаревшей версии
@@ -1557,6 +1558,7 @@ if (procedure && procedure.type === 'autohemotherapy' &&
         onClose={closeProcedureForm}
         onSave={handleSaveProcedure}
         overlayColor="rgba(0,0,0,0)"
+        serviceId={serviceId}
     />
 </div>
 

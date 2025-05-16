@@ -217,7 +217,7 @@
         padding: 12px;
         z-index: 1000;
         font-size: 14px;
-        width: 320px;
+        width: 450px;
         border: 1px solid rgba(0, 0, 0, 0.1);
         /* Убираем opacity и visibility, т.к. ими управляет родительский компонент */
     }

@@ -30,7 +30,7 @@
 
     async function loadDiluents() {
         try {
-            const diluentResult = await medicationService.getAllDiluentsTypes();
+            const diluentResult = await medicationService.getAllDiluentsTypes(serviceId);
             if (diluentResult && diluentResult.diluents) {
                 intravenousDiluents = diluentResult.diluents.iv || [];
                 intramuscularDiluents = diluentResult.diluents.im || [];
