@@ -166,6 +166,15 @@ export const medicationService = {
 // Переписанный treatmentService
 export const treatmentService = {
     /**
+     * Проверить наличие диагноза в протоколе
+     * @param {string} serviceId - ID сервиса
+     * @returns {Promise<Object>} - Результат проверки {status: boolean, text: string}
+     */
+    checkDiagnosis: async (serviceId) => {
+        return apiClient.request("checkDiagnosis", { serviceId });
+    },
+
+    /**
      * Получить схемы лечения для сервиса
      * @param {string} serviceId - ID сервиса
      * @returns {Promise<Object>} - Список схем лечения

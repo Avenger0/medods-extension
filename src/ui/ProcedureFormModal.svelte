@@ -65,7 +65,11 @@
     let positiveAgents = [];
     let negativeAgents = [];
 
-    onMount(async () => {
+    $: if (isOpen && (positiveAgents.length === 0 || negativeAgents.length === 0)) {
+        loadElectroAgents();
+    }
+
+    async function loadElectroAgents() {
         try {
             const electroResult = await medicationService.getAllDiluentsTypes();
             if (electroResult && electroResult.diluents) {
@@ -75,7 +79,7 @@
         } catch (error) {
             console.error('Ошибка загрузки электрофорезных агентов:', error);
         }
-    });
+    }
 
     // Предустановленные варианты времени
     const presetTimes = [5, 10, 15, 20, 25, 30, 35, 40];

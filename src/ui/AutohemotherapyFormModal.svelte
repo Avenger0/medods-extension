@@ -10,7 +10,11 @@
 
     let bloodDiluents = [];
 
-    onMount(async () => {
+    $: if (isOpen && bloodDiluents.length === 0) {
+        loadBloodDiluents();
+    }
+
+    async function loadBloodDiluents() {
         try {
             const autohemoResult = await medicationService.getDiluentsByType('autohemo');
             if (autohemoResult && autohemoResult.diluents) {
@@ -21,7 +25,7 @@
             // Установите значение по умолчанию при ошибке
             bloodDiluents = ['Глюконат кальция'];
         }
-    });
+    }
 
     const bloodDosages = Array.from({length: 10}, (_, i) => `${i + 1} мл`);
     const diluentDosages = Array.from({length: 6}, (_, i) => `${i} мл`);

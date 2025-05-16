@@ -28,9 +28,8 @@
     let intravenousDiluents = [];
     let intramuscularDiluents = [];
 
-    onMount(async () => {
+    async function loadDiluents() {
         try {
-            // Загружаем растворители одновременно с препаратами
             const diluentResult = await medicationService.getAllDiluentsTypes();
             if (diluentResult && diluentResult.diluents) {
                 intravenousDiluents = diluentResult.diluents.iv || [];
@@ -39,7 +38,11 @@
         } catch (error) {
             console.error('Ошибка загрузки растворителей:', error);
         }
-    });
+    }
+
+    $: if (isOpen && (intravenousDiluents.length === 0 || intramuscularDiluents.length === 0)) {
+        loadDiluents();
+    }
 
     let highlightedMedicationId = null;
     let lastAddedIndex = -1;

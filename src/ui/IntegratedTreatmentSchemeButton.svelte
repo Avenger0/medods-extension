@@ -74,8 +74,12 @@
     let validationError = '';
     let tableReady = false;
 
+    let isDiagnosisWarningVisible = false;
+    let diagnosisWarningText = "";
 
     let requireConfirmation = false;
+
+    let isButtonLoading = false;
 
     $: requireConfirmation = selectedMedications.length > 0 && isCreatingNewScheme;
 
@@ -86,6 +90,21 @@
     // Вызываем загрузку при первом открытии модального окна
     $: if (isModalOpen && medications.length === 0 && !isLoadingMedications) {
         loadMedications();
+    }
+
+    // Функция для проверки диагноза
+    async function checkDiagnosis() {
+        try {
+            const result = await treatmentService.checkDiagnosis(serviceId);
+            if (!result.status) {
+                isDiagnosisWarningVisible = true;
+                diagnosisWarningText = result.text;
+            } else {
+                isDiagnosisWarningVisible = false;
+            }
+        } catch (error) {
+            console.error('Ошибка при проверке диагноза:', error);
+        }
     }
 
     // Функция для загрузки медикаментов с API
@@ -192,24 +211,31 @@
             resetState();
             return;
         }
-        
-        // Проверяем версию перед открытием модального окна
-        if (!isVersionChecking) {
-            // Запускаем проверку версии
+
+        isButtonLoading = true;
+
+        try {
             await checkVersion();
-        }
-        
-        // Если версия актуальна или проверка не выполнена, открываем модальное окно
-        if (!isVersionOutdated) {
-            isModalOpen = true;
             
-            if (serviceId) {
-                loadSchematics();
+            // Если версия актуальна или проверка не выполнена, открываем модальное окно
+            if (!isVersionOutdated) {
+                isModalOpen = true;
+                await checkDiagnosis();
+                
+                if (serviceId) {
+                    loadSchematics();
+                }
+            } else {
+                // Показываем модальное окно с предупреждением об устаревшей версии
+                showOutdatedVersionModal();
             }
-        } else {
-            // Показываем модальное окно с предупреждением об устаревшей версии
-            showOutdatedVersionModal();
+        } catch (error) {
+            console.error('Ошибка при открытии модального окна:', error);
+        } finally {
+            isButtonLoading = false;
         }
+
+       
     }
 
     function selectAllDaysForMedication(medication) {
@@ -1232,7 +1258,6 @@ if (procedure && procedure.type === 'autohemotherapy' &&
     onMount(() => {
         tableReady = false;
         equalizeRowHeights();
-        checkVersion();
     });
 </script>
 
@@ -1243,8 +1268,13 @@ if (procedure && procedure.type === 'autohemotherapy' &&
         on:click={toggleModal} 
         class="treatment-scheme-button"
         style="--bg-color: {mainButtonBgColor}; --text-color: {mainButtonTextColor}; --border-radius: {mainButtonBorderRadius};"
+        disabled={isButtonLoading}
     >
-        📋 Схема лечения
+         {#if isButtonLoading}
+            <span class="button-spinner"></span>
+        {:else}
+            📋 Схема лечения
+        {/if}
     </button>
 
     <!-- Основное модальное окно -->
@@ -1279,7 +1309,17 @@ if (procedure && procedure.type === 'autohemotherapy' &&
                         isLoading={isLoadingSchematics}
                         error={schematicsError}
                     />
+                    
                     <div class="btn-action">
+                        {#if isDiagnosisWarningVisible}
+                            <div class="diagnosis-warning">
+                                <div class="warning-content">
+                                    <div class="warning-icon">⚠️</div>
+                                    <div class="warning-text">{diagnosisWarningText}</div>
+                                    <button class="close-warning" on:click={() => isDiagnosisWarningVisible = false}>✕</button>
+                                </div>
+                            </div>
+                        {/if}
                         <CreateSchemeButton 
                             onClick={startNewScheme}
                             buttonBgColor={createButtonBgColor}
@@ -1930,6 +1970,61 @@ if (procedure && procedure.type === 'autohemotherapy' &&
 
     .btn-select-all-days:hover {
         background-color: #e6f7fb;
+    }
+
+    .diagnosis-warning {
+        background-color: #fff3cd;
+        border: 1px solid #ffeeba;
+        border-radius: 4px;
+        padding: 10px;
+        margin-top: 5px;
+        width: 500px;
+        z-index: 1000;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        margin: auto;
+        margin-bottom: 25px;
+    }
+
+    .warning-content {
+        display: flex;
+        align-items: center;
+    }
+
+    .warning-icon {
+        flex-shrink: 0;
+        margin-right: 10px;
+        font-size: 20px;
+    }
+
+    .warning-text {
+        flex-grow: 1;
+        font-size: 14px;
+        color: #856404;
+    }
+
+    .close-warning {
+        background: none;
+        border: none;
+        color: #856404;
+        cursor: pointer;
+        font-size: 16px;
+        padding: 0;
+        margin-left: 10px;
+    }
+
+    .button-spinner {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 1s ease-in-out infinite;
+    }
+
+    .treatment-scheme-button:disabled {
+        opacity: 0.7;
+        cursor: wait;
     }
 
     @keyframes spin {
