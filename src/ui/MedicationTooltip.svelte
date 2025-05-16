@@ -2,21 +2,89 @@
 <script>
     import { onMount } from 'svelte';
     
-    // Входные параметры
+    export let medications = [];
     export let medication = {};
-    export let position = "right"; // Позиция всплывающего окна: top, right, bottom, left
-    
+    export let position = "right";
+
     let tooltipElement;
-    
-    // Проверка наличия дополнительной информации
-    $: hasActiveIngredient = medication.activeIngredient && medication.activeIngredient.trim() !== '';
-    $: hasNotes = medication.notes && medication.notes.trim() !== '';
-    $: hasStock = medication.stockQuantity !== undefined && medication.stockQuantity !== null;
-    $: hasPrice = medication.price !== undefined && medication.price !== null;
-    $: hasDiluents = medication.compatibleDiluents && medication.compatibleDiluents.trim() !== '';
-    $: hasVidalLink = medication.vidalLink && medication.vidalLink.trim() !== '';
+    let actualData = null;
+    let isDataReady = false;
+
+    // Инициализация безопасных значений по умолчанию
+    let displayData = {
+        name: 'Препарат',
+        fullName: '',
+        activeIngredient: '',
+        notes: '',
+        stockQuantity: 0,
+        price: '',
+        compatibleDiluents: '',
+        vidalLink: '',
+        types: [] // Важно: инициализируем типы как пустой массив
+    };
+
+    onMount(() => {
+        try {
+            // Попытка найти актуальные данные
+            if (medication && medication.id && Array.isArray(medications)) {
+                actualData = medications.find(med => med && med.id == medication.id) || null;
+            }
+            
+            // Объединяем данные из actualData и medication
+            displayData = {
+                name: medication?.name || 'Препарат',
+                fullName: medication?.fullName || '',
+                activeIngredient: actualData?.activeIngredient || medication?.activeIngredient || '',
+                notes: actualData?.notes || medication?.notes || '',
+                stockQuantity: typeof actualData?.stockQuantity === 'number' ? actualData.stockQuantity : 
+                               typeof medication?.stockQuantity === 'number' ? medication.stockQuantity : 0,
+                price: actualData?.price || medication?.price || '',
+                compatibleDiluents: actualData?.compatibleDiluents || medication?.compatibleDiluents || '',
+                vidalLink: actualData?.vidalLink || medication?.vidalLink || '',
+                
+                // Сохраняем типы из обоих источников, отдавая приоритет actualData
+                types: Array.isArray(actualData?.types) ? actualData.types : 
+                       Array.isArray(medication?.types) ? medication.types : 
+                       Array.isArray(actualData?.availableTypes) ? actualData.availableTypes :
+                       Array.isArray(medication?.availableTypes) ? medication.availableTypes : []
+            };
+            
+            isDataReady = true;
+            
+            // Позиционирование tooltip
+            if (tooltipElement) {
+                const rect = tooltipElement.getBoundingClientRect();
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+                
+                if (rect.right > viewportWidth) {
+                    tooltipElement.style.transform = 'translateX(-100%)';
+                    tooltipElement.style.left = '-20px';
+                }
+                
+                if (rect.bottom > viewportHeight && position === 'bottom') {
+                    tooltipElement.style.top = 'auto';
+                    tooltipElement.style.bottom = '20px';
+                }
+            }
+        } catch (error) {
+            console.error('Ошибка при инициализации MedicationTooltip:', error);
+            isDataReady = true; // Всё равно помечаем как готово, чтобы отрисовать что-то
+        }
+    });
+
+    // Условия отображения информации - проверяем только displayData
+    $: hasActiveIngredient = displayData.activeIngredient && displayData.activeIngredient.trim() !== '';
+    $: hasNotes = displayData.notes && displayData.notes.trim() !== '';
+    $: hasStock = displayData.stockQuantity !== undefined && displayData.stockQuantity !== null;
+    $: hasPrice = displayData.price && displayData.price.toString().trim() !== '';
+    $: hasDiluents = displayData.compatibleDiluents && displayData.compatibleDiluents.trim() !== '';
+    $: hasVidalLink = displayData.vidalLink && displayData.vidalLink.trim() !== '';
+    $: hasTypes = displayData.types && Array.isArray(displayData.types) && displayData.types.length > 0;
     
     function getRouteClass(type) {
+        if (!type) return 'route-unknown';
+        
         switch(type) {
             case 'в/в': return 'route-iv';
             case 'в/м': return 'route-im';
@@ -30,8 +98,9 @@
         }
     }
     
-    // Функция для расшифровки краткого обозначения типа введения
     function getRouteFullName(type) {
+        if (!type) return '';
+        
         switch(type) {
             case 'в/в': return 'Внутривенно';
             case 'в/м': return 'Внутримышечно';
@@ -45,29 +114,6 @@
         }
     }
 
-    onMount(() => {
-        // Убедимся, что всплывающее окно не выходит за пределы экрана
-        if (tooltipElement) {
-            const rect = tooltipElement.getBoundingClientRect();
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
-            
-            // Корректируем, если выходит за правый край экрана
-            if (rect.right > viewportWidth) {
-                tooltipElement.style.transform = 'translateX(-100%)';
-                tooltipElement.style.left = '-20px';
-            }
-            
-            // Корректируем, если выходит за нижний край экрана
-            if (rect.bottom > viewportHeight) {
-                if (position === 'bottom') {
-                    tooltipElement.style.top = 'auto';
-                    tooltipElement.style.bottom = '20px';
-                }
-            }
-        }
-    });
-
     function getStockColorClass(quantity) {
         if (quantity === 0) return 'stock-critical';
         if (quantity <= 3) return 'stock-warning';
@@ -77,79 +123,93 @@
 </script>
 
 <div class="medication-tooltip {position}" bind:this={tooltipElement}>
-    <div class="tooltip-header">
-        <h3>{medication.name}</h3>
-        <span class="full-name">{medication.fullName}</span>
-        {#if medication.types && medication.types.length > 0}
-            <div class="route-badges">
-                {#each medication.types as routeType}
-                    <span 
-                        class="route-badge {getRouteClass(routeType)}" 
-                        title="{getRouteFullName(routeType)}"
-                    >
-                        {routeType}
+    {#if !isDataReady}
+        <div class="loading">Загрузка данных...</div>
+    {:else}
+        <div class="tooltip-header">
+            <h3>{displayData.name}</h3>
+            <span class="full-name">{displayData.fullName}</span>
+            
+            <!-- Блок с типами введения, с проверкой существования -->
+            {#if hasTypes}
+                <div class="route-badges">
+                    {#each displayData.types as routeType}
+                        {#if routeType}
+                            <span 
+                                class="route-badge {getRouteClass(routeType)}" 
+                                title="{getRouteFullName(routeType)}"
+                            >
+                                {routeType}
+                            </span>
+                        {/if}
+                    {/each}
+                </div>
+            {/if}
+        </div>
+        
+        <div class="tooltip-content">
+            {#if hasActiveIngredient}
+                <div class="info-row">
+                    <span class="med-label">Действующее в-в</span>
+                    <span class="value">{displayData.activeIngredient}</span>
+                </div>
+            {/if}
+
+            {#if hasDiluents}
+                <div class="info-row">
+                    <span class="med-label">Рек. растворы</span>
+                    <span class="value">{displayData.compatibleDiluents}</span>
+                </div>
+            {/if}
+
+            {#if hasPrice}
+                <div class="info-row">
+                    <span class="med-label">Цена</span>
+                    <span class="value stock-price">{displayData.price} р.</span>
+                </div>
+            {/if}
+            
+            {#if hasStock}
+                <div class="info-row">
+                    <span class="med-label">На складе</span>
+                    <span class="value stock-quantity {getStockColorClass(displayData.stockQuantity)}">
+                        {displayData.stockQuantity} шт.
+                        {#if displayData.stockQuantity === 0}
+                            <span class="stock-status">отсутствует</span>
+                        {:else if displayData.stockQuantity <= 3}
+                            <span class="stock-status">мало</span>
+                        {/if}
                     </span>
-                {/each}
-            </div>
-        {/if}
-    </div>
-    
-    <div class="tooltip-content">
-        {#if hasActiveIngredient}
-            <div class="info-row">
-                <span class="med-label">Действующее в-в</span>
-                <span class="value">{medication.activeIngredient}</span>
-            </div>
-        {/if}
-
-        {#if hasDiluents}
-            <div class="info-row">
-                <span class="med-label">Рек. растворы</span>
-                <span class="value">{medication.compatibleDiluents}</span>
-            </div>
-        {/if}
-
-        {#if hasPrice}
-            <div class="info-row">
-                <span class="med-label">Цена</span>
-                <span class="value stock-price">{medication.price} р.</span>
-            </div>
-        {/if}
-        
-        {#if hasStock !== undefined}
-            <div class="info-row">
-                <span class="med-label">На складе</span>
-                <span class="value stock-quantity {getStockColorClass(medication.stockQuantity)}">
-                    {medication.stockQuantity} шт.
-                    {#if medication.stockQuantity === 0}
-                        <span class="stock-status">отсутствует</span>
-                    {:else if medication.stockQuantity <= 3}
-                        <span class="stock-status">мало</span>
-                    {/if}
-                </span>
-            </div>
-        {/if}
-        
-        {#if hasNotes}
-            <div class="info-row med-notes">
-                <span class="value">{medication.notes}</span>
-            </div>
-        {/if}
-        
-        {#if hasVidalLink}
-            <div class="info-row vidal-link">
-                <a href={medication.vidalLink} target="_blank" rel="noopener noreferrer">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M10 6H6C4.89543 6 4 6.89543 4 8V18C4 19.1046 4.89543 20 6 20H16C17.1046 20 18 19.1046 18 18V14M14 4H20M20 4V10M20 4L10 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    Открыть в Vidal
-                </a>
-            </div>
-        {/if}
-    </div>
+                </div>
+            {/if}
+            
+            {#if hasNotes}
+                <div class="info-row med-notes">
+                    <span class="value">{displayData.notes}</span>
+                </div>
+            {/if}
+            
+            {#if hasVidalLink}
+                <div class="info-row vidal-link">
+                    <a href={displayData.vidalLink} target="_blank" rel="noopener noreferrer">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 6H6C4.89543 6 4 6.89543 4 8V18C4 19.1046 4.89543 20 6 20H16C17.1046 20 18 19.1046 18 18V14M14 4H20M20 4V10M20 4L10 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Открыть в Vidal
+                    </a>
+                </div>
+            {/if}
+        </div>
+    {/if}
 </div>
-
 <style>
+     .loading {
+        padding: 20px;
+        text-align: center;
+        color: #6c757d;
+        font-style: italic;
+    }
+    
     .medication-tooltip {
         background-color: white;
         border-radius: 8px;

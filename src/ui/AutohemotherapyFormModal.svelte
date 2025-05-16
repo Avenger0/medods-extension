@@ -1,13 +1,28 @@
 <!-- src/ui/AutohemotherapyFormModal.svelte -->
 <script>
     import TreatmentModal from './TreatmentModal.svelte';
-    
+    import { medicationService } from '../utils/api.js';
+    import { onMount } from 'svelte';
+
     export let isOpen = false;
     export let onClose;
     export let onSave;
-    
-    // Константы
-    const bloodDiluents = ['Глюконат кальция'];
+
+    let bloodDiluents = [];
+
+    onMount(async () => {
+        try {
+            const autohemoResult = await medicationService.getDiluentsByType('autohemo');
+            if (autohemoResult && autohemoResult.diluents) {
+                bloodDiluents = autohemoResult.diluents.autohemo || [];
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки растворителей для аутогемотерапии:', error);
+            // Установите значение по умолчанию при ошибке
+            bloodDiluents = ['Глюконат кальция'];
+        }
+    });
+
     const bloodDosages = Array.from({length: 10}, (_, i) => `${i + 1} мл`);
     const diluentDosages = Array.from({length: 6}, (_, i) => `${i} мл`);
     

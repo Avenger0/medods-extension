@@ -3,6 +3,7 @@
     import { onMount, onDestroy } from 'svelte';
     import MedicationTooltip from './MedicationTooltip.svelte';
     
+    export let medications;
     export let medication;
     export let tooltipPosition = "right";
     
@@ -83,6 +84,7 @@
         >
             <MedicationTooltip 
                 medication={medication} 
+                medications={medications} 
                 position={tooltipPosition}
             />
         </div>

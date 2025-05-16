@@ -120,6 +120,18 @@ export const medicationService = {
         });
     },
 
+    // Новый метод для получения растворителей
+    getDiluentsByType: async (type) => {
+        return apiClient.cachedRequest("getDiluentsByType", {
+            type: type 
+        });
+    },
+
+    // Общий метод для получения всех типов растворителей сразу
+    getAllDiluentsTypes: async () => {
+        return apiClient.cachedRequest("getAllDiluentsTypes", {});
+    },
+
     /**
      * Создать новый медикамент
      * @param {Object} medicationData - Данные медикамента

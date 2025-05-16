@@ -1,6 +1,7 @@
 <!-- src/ui/MedicationFormModal.svelte -->
 <script>
     import Select from 'svelte-select';
+    import { onMount } from 'svelte';
     import { medicationService } from '../utils/api.js';
     import TreatmentModal from './TreatmentModal.svelte';
     import AddMedicationModal from './AddMedicationModal.svelte';
@@ -22,21 +23,23 @@
 
     export let isEditing = false;
     export let onSave;
+    export let medications;
 
-    const intravenousDiluents = [
-        'Физраствор',
-        'Глюкоза',
-        'Р-р Рингера',
-        'Р-р Рингера-Локка',
-        '2% натрия гидрокарбонад (сода) (200 мл)',
-        'Вода для инъекций'
-    ];
+    let intravenousDiluents = [];
+    let intramuscularDiluents = [];
 
-    const intramuscularDiluents = [
-        'Новокаин 0,5% (5 мл)',
-        'Лидокаин 2% (2 мл)',
-        'Вода для инъекций'
-    ];
+    onMount(async () => {
+        try {
+            // Загружаем растворители одновременно с препаратами
+            const diluentResult = await medicationService.getAllDiluentsTypes();
+            if (diluentResult && diluentResult.diluents) {
+                intravenousDiluents = diluentResult.diluents.iv || [];
+                intramuscularDiluents = diluentResult.diluents.im || [];
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки растворителей:', error);
+        }
+    });
 
     let highlightedMedicationId = null;
     let lastAddedIndex = -1;
@@ -286,7 +289,7 @@
         
         medicationForm.diluents = [
             ...medicationForm.diluents,
-            { id: String(Date.now()), type: defaultDiluent, dosage: '' }
+            { id: String(Date.now()), type: defaultDiluent, dosage: ''}
         ];
     }
     
@@ -457,8 +460,6 @@
     onClose={onClose}
     maxWidth="750px"
     minHeight="500px"
-    maxHeight="650px"
-    height="100%"
     overlayAlign="right"
     overlayPadding="0 11% 0 0"
     confirmBeforeClose={true}
@@ -526,7 +527,9 @@
                                         <div class="medication-row {med.id === highlightedMedicationId ? 'highlight-yellow' : ''}">
                                             <div class="medication-info">
                                                 <span class="medication-name">
-                                                    <MedicationInfoTrigger medication={med} tooltipPosition="right" />
+                                                    {#if !isLoading}
+                                                        <MedicationInfoTrigger medication={med} medications={loadedMedications} tooltipPosition="right" />
+                                                    {/if}
                                                     {med.name}
                                                 </span>
                                             </div>
@@ -870,6 +873,7 @@
         display: flex;
         justify-content: flex-end;
         gap: 10px;
+        margin-bottom: 20px;
     }
     
     .btn-save, .btn-cancel {

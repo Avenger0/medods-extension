@@ -1,6 +1,8 @@
 <script>
     import TreatmentModal from './TreatmentModal.svelte';
     import AutohemotherapyFormModal from './AutohemotherapyFormModal.svelte';
+    import { medicationService } from '../utils/api.js';
+    import { onMount } from 'svelte';
 
     export let isOpen = false;
     export let onClose;
@@ -60,19 +62,20 @@
     // В блоке выбора типа процедуры добавим проверку
     $: isAutohemotherapySelected = procedureForm.type === 'autohemotherapy';
 
-    // Растворители для электрофореза
-    const positiveAgents = [
-        'Карипазим',
-        'Диклофенак',
-        'Лидокаин',
-        'Лидаза',
-        'Никотиновая кислота',
-        'Кальция хлорид',
-        'Новокаин',
-        'Магния сульфат'
-    ];
+    let positiveAgents = [];
+    let negativeAgents = [];
 
-    const negativeAgents = ['Эуфиллин'];
+    onMount(async () => {
+        try {
+            const electroResult = await medicationService.getAllDiluentsTypes();
+            if (electroResult && electroResult.diluents) {
+                positiveAgents = electroResult.diluents.electro_positive || [];
+                negativeAgents = electroResult.diluents.electro_negative || [];
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки электрофорезных агентов:', error);
+        }
+    });
 
     // Предустановленные варианты времени
     const presetTimes = [5, 10, 15, 20, 25, 30, 35, 40];

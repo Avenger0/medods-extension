@@ -100,6 +100,7 @@
                 type: med.type && med.type.length > 0 ? med.type[0] : 'в/м',
                 availableTypes: med.type || ['в/м', 'в/в']
             }));
+
         } catch (error) {
             console.error('Ошибка загрузки медикаментов:', error);
         } finally {
